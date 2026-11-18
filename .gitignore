@@ -9,3 +9,5 @@ node_modules/
 cloudinary_python.txt
 kaggle.json
 .venv/
+# Trained machine learning models
+outputs/models/*.joblib
