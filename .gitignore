@@ -11,3 +11,4 @@ kaggle.json
 .venv/
 # Trained machine learning models
 outputs/models/*.joblib
+!outputs/models/optimized_random_forest.joblib
