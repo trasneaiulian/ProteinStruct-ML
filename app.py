@@ -14,7 +14,9 @@ def load_data():
 
 @st.cache_resource
 def load_model():
-    return joblib.load("outputs/models/optimized_random_forest.joblib")
+    return joblib.load(
+        "outputs/models/optimized_random_forest_compressed.joblib"
+    )
 
 st.sidebar.title("🧬 ProteinStruct-ML")
 
