@@ -784,6 +784,42 @@ However, the moderate correlation and limited explanatory power of F3 alone indi
 
 These findings provide statistical motivation for the subsequent machine-learning experiments using Linear Regression, Random Forest Regression, and HistGradientBoosting Regression.
 
+### 7. EDA Summary and Implications for Machine Learning
+
+The exploratory analysis of the cleaned CASP dataset provided several important insights into the statistical characteristics of protein structural deviation and its numerical predictors.
+
+#### Summary of Key Findings
+
+| Analysis | Key Finding | Implication |
+|---|---|---|
+| RMSD distribution | Non-normal, apparently bimodal distribution | Models must predict a broad range of structural deviations |
+| Feature distributions | Several predictors exhibit positive skewness | Different feature scales and distributions should be considered |
+| F7 extreme values | Maximum of approximately 105,948 | Extreme observations may influence certain algorithms |
+| Pearson correlation | F3 has the strongest individual correlation with RMSD (r = 0.3734) | F3 provides useful but limited linear predictive information |
+| Multicollinearity | Strong correlations among F1, F5, and F6 | Linear regression coefficients may be difficult to interpret |
+| F3–RMSD scatter plot | Substantial variability around the positive association | Additional features and nonlinear relationships may be important |
+| Hypothesis testing | Statistically significant positive association between F3 and RMSD | Statistical significance does not necessarily imply strong predictive performance |
+
+#### Implications for Model Development
+
+Based on these findings, the subsequent modeling stage was designed to compare regression algorithms with different levels of complexity.
+
+**Linear Regression** provides an interpretable benchmark for evaluating whether a linear combination of the nine descriptors can adequately predict RMSD.
+
+**Random Forest Regression** can model nonlinear relationships and interactions between predictors without requiring feature standardization.
+
+**HistGradientBoosting Regression** provides an alternative ensemble-learning approach capable of capturing complex patterns through sequentially constructed decision trees.
+
+The analysis also emphasizes the importance of evaluating model performance on unseen data rather than relying solely on correlations observed during EDA.
+
+#### Final EDA Conclusions
+
+The exploratory analysis demonstrated that RMSD prediction is a challenging regression problem characterized by heterogeneous target values, asymmetric feature distributions, substantial predictor correlations, and potentially nonlinear relationships.
+
+All nine numerical predictors were retained for the initial modeling experiments, and extreme observations were preserved.
+
+The next stage focuses on establishing baseline performance, training multiple regression algorithms, optimizing hyperparameters, and evaluating predictive accuracy using appropriate validation strategies.
+
 
 
 
