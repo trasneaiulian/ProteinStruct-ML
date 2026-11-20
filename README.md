@@ -351,6 +351,194 @@ The investigation also highlighted the importance of considering repeated predic
 
 This finding motivated the use of group-aware data splitting and cross-validation in the modeling notebook to reduce the risk of information leakage between training and evaluation datasets.
 
+## Exploratory Data Analysis
+
+Exploratory Data Analysis (EDA) was performed in `02_EDA.ipynb` using the cleaned CASP dataset containing 44,019 observations.
+
+The purpose of the analysis was to understand the statistical properties of RMSD and the nine numerical predictors (F1–F9), investigate potential outliers, examine relationships between variables, and identify considerations relevant to machine-learning model development.
+
+The analysis included descriptive statistics, distribution plots, correlation analysis, and statistical hypothesis testing.
+
+### 1. Distribution of RMSD
+
+The first stage investigated the distribution of RMSD, the continuous target variable used for machine-learning regression.
+
+A histogram with 50 bins and a kernel density estimate (KDE) was generated to visualize the frequency and distribution of RMSD values.
+
+![RMSD Distribution](images/rmsd_distribution.png)
+
+The histogram revealed a non-normal, apparently bimodal distribution, with two main concentrations of observations:
+
+- A prominent concentration around 1.5–3 Å, representing relatively low structural deviations.
+- A broader concentration around 14–16 Å, representing substantially higher structural deviations.
+
+Fewer observations were present in the intermediate range of approximately 7–10 Å.
+
+These observations suggest that the dataset contains distinct regions of structural deviation. However, the histogram alone does not establish the biological or computational reasons for this pattern.
+
+#### Descriptive Statistics
+
+The following statistics were calculated using Pandas:
+
+| Statistic | Result |
+|---|---:|
+| Mean RMSD | 7.796 Å |
+| Median RMSD | 5.087 Å |
+| Standard deviation | 6.138 Å |
+| Variance | 37.673 Å² |
+| Skewness | 0.553 |
+| Excess kurtosis | −1.162 |
+| Observations with RMSD below 5 Å | 49.6% |
+
+The mean RMSD is higher than the median, consistent with the moderately positive skewness of 0.553.
+
+The standard deviation of 6.138 Å indicates substantial variability in structural deviation across the dataset.
+
+The negative excess kurtosis indicates lower kurtosis than a normal distribution.
+
+The empirical probability of observing RMSD below 5 Å was approximately 49.6%. This means that almost half of the observations had RMSD values below this threshold.
+
+#### Implications for Machine Learning
+
+The distribution of RMSD has several implications for predictive modeling.
+
+First, the model must learn relationships across a broad range of structural deviations.
+
+Second, prediction errors may vary between low-RMSD and high-RMSD observations. Therefore, overall evaluation metrics should be interpreted alongside residual analysis.
+
+Third, the apparent bimodality suggests that a single linear relationship may not adequately describe the variation in RMSD.
+
+These observations support comparing a simple linear regression model with more flexible nonlinear algorithms, including Random Forest and HistGradientBoosting Regression.
+
+No target transformation was performed during exploratory analysis. The original RMSD values were retained for subsequent modeling.
+
+### 2. Distribution of Input Features (F1–F9)
+
+The nine numerical predictor variables (F1–F9) were examined to understand their distributions, variability, and potential extreme values.
+
+These descriptors represent numerical characteristics associated with protein structural models in the CASP dataset. Their individual scientific definitions are not provided in the project dataset.
+
+Understanding the distributions of these variables is important because their numerical scales, asymmetry, and extreme observations may influence machine-learning performance.
+
+#### Visualization of Feature Distributions
+
+Histograms with kernel density estimates (KDE) were generated for all nine predictors using Seaborn and Matplotlib.
+
+The histograms were arranged in a **3 × 3 grid**, allowing direct comparison of the distributional characteristics of F1–F9.
+
+![Distribution of CASP Physicochemical Descriptors F1–F9](images/feature_distributions.png)
+
+*Figure: Distribution of the nine numerical descriptors (F1–F9) in the cleaned CASP dataset. Each histogram displays the frequency of observed values, while the KDE curve provides a smoothed representation of the distribution.*
+
+#### Key Findings
+
+The exploratory analysis revealed considerable differences between the distributions of the nine predictors.
+
+**1. Right-Skewed Distributions**
+
+Seven predictors — F1, F2, F4, F5, F6, F7, and F8 — exhibited varying degrees of positive skewness.
+
+This indicates that their distributions have longer right-hand tails, with some observations substantially exceeding the values found in the main concentration of the data.
+
+**2. Approximately Symmetric Distribution**
+
+F3 exhibited a roughly bell-shaped distribution, suggesting a more balanced spread of observations around its central region.
+
+**3. Complex Distribution**
+
+F9 displayed an asymmetric distribution with multiple shoulders, indicating a more complex pattern than a simple symmetric distribution.
+
+**4. Potential Extreme Values**
+
+F7 contained particularly large upper-tail observations, with its maximum value exceeding 100,000.
+
+These observations warranted further investigation to determine their frequency and potential implications for modeling.
+
+#### Implications for Machine Learning
+
+The differences between predictor distributions have several implications:
+
+- **Feature scaling:** Predictors have substantially different numerical ranges. Standardization may benefit algorithms that are sensitive to feature scale.
+- **Extreme values:** Unusually large observations can influence certain regression algorithms and may require further investigation.
+- **Algorithm selection:** Tree-based algorithms, including Random Forest and HistGradientBoosting, are generally less sensitive to feature scaling than many distance-based or regularized models.
+- **Feature transformations:** Transformations may be considered where appropriate, but should be evaluated within the training pipeline to avoid data leakage.
+- **Data preservation:** Extreme observations should not automatically be removed without evidence that they represent errors.
+
+No observations were removed solely because of their distributional characteristics.
+
+The particularly large values observed in F7 were investigated separately in the next stage of exploratory analysis.
+
+### 3. Investigation of Extreme Values in F7
+
+The distribution analysis identified F7 as a descriptor containing particularly large values in its upper tail.
+
+To investigate these observations, a more detailed statistical analysis was performed using percentiles and threshold-based counts.
+
+The objective was to determine the extent of the extreme values and assess whether they should be retained for subsequent machine-learning development.
+
+#### Statistical Investigation
+
+The following percentiles were calculated using the Pandas `quantile()` method.
+
+| Percentile | F7 Value |
+|---|---:|
+| 50th (Median) | 3,840.54 |
+| 90th | 5,371.42 |
+| 95th | 5,759.71 |
+| 99th | 7,244.05 |
+| 99.9th | 19,873.50 |
+| Maximum | 105,948.17 |
+
+The results indicate that most F7 values are concentrated within a substantially narrower range than the maximum observation.
+
+For example, 99% of observations have F7 values at or below approximately 7,244, while the maximum reaches 105,948.
+
+The maximum value is approximately **27.6 times greater than the median**, demonstrating the presence of an exceptionally long upper tail.
+
+#### Frequency of Extreme Observations
+
+To determine how frequently unusually large values occur, observations exceeding two thresholds were counted.
+
+| Threshold | Number of Observations | Percentage of Dataset |
+|---|---:|---:|
+| F7 > 10,000 | 267 | 0.61% |
+| F7 > 20,000 | 43 | 0.10% |
+
+Only a small fraction of the dataset contains these extreme values.
+
+Although uncommon, their presence may influence certain statistical and machine-learning algorithms.
+
+#### Interpretation and Data Quality Considerations
+
+An extreme numerical value is not necessarily an erroneous observation.
+
+In scientific datasets, unusually large values may represent genuine variation, measurement artifacts, computational effects, or data-processing errors.
+
+However, the available CASP dataset does not provide sufficient information to determine the scientific validity of individual extreme F7 observations.
+
+Consequently, removing these records solely because they are statistically unusual would not be justified.
+
+#### Implications for Machine Learning
+
+Extreme values may affect regression algorithms differently.
+
+- **Linear Regression:** Unusual predictor values can have high leverage and may substantially influence the fitted relationship.
+- **Random Forest Regression:** Decision trees partition the feature space using thresholds and are generally less sensitive to numerical scaling.
+- **HistGradientBoosting Regression:** Histogram-based feature binning can reduce sensitivity to the magnitude of extreme predictor values, although unusual observations may still influence predictions.
+
+Potential transformations or robust preprocessing methods could be evaluated during model development if necessary.
+
+Any preprocessing parameters learned from the data should be fitted using the training data only, avoiding information leakage into validation or test sets.
+
+#### Final Decision
+
+**All extreme F7 observations were retained in the cleaned dataset.**
+
+No outlier removal or feature transformation was performed during the ETL or exploratory analysis stages.
+
+This decision preserves the original numerical information while allowing the machine-learning models to be evaluated on the observed feature distributions.
+
+
 
 
 
