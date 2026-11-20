@@ -1159,7 +1159,519 @@ Nevertheless, its relatively modest R² indicates that a simple linear combinati
 
 The next stage evaluates model generalization using group-aware cross-validation before comparing Linear Regression with nonlinear ensemble methods.
 
+### 4. Group-Aware Cross-Validation
 
+Following the initial training evaluation, group-aware cross-validation was implemented to assess how well the regression models generalize to unseen observations.
+
+Evaluating a model exclusively on the data used for training can produce overly optimistic results because the model has already encountered those observations.
+
+Cross-validation provides a more reliable estimate of predictive performance by repeatedly training and validating a model on different subsets of the available training data.
+
+#### Why Group-Aware Cross-Validation?
+
+During the ETL stage, some observations were found to contain identical F1–F9 predictor combinations, occasionally associated with different RMSD values.
+
+Using conventional K-fold cross-validation could allow identical predictor combinations to appear in both training and validation subsets.
+
+To reduce this risk, `GroupKFold` from scikit-learn was used.
+
+Each unique combination of F1–F9 values was assigned a group identifier.
+
+GroupKFold ensures that all observations belonging to the same group remain together within each validation split.
+
+This provides a more stringent evaluation than randomly distributing observations across folds.
+
+#### Five-Fold Cross-Validation
+
+The training dataset was divided into five group-aware folds.
+
+During each iteration:
+
+1. Four folds were used to train the regression model.
+2. The remaining fold was used for validation.
+3. Prediction errors were calculated on the validation fold.
+4. The process was repeated until every fold had served as the validation subset.
+
+The resulting validation scores were averaged to estimate model performance.
+
+The independent test dataset was excluded from this procedure.
+
+#### Implementation
+
+The cross-validation strategy was implemented using scikit-learn:
+
+```python
+from sklearn.model_selection import GroupKFold, cross_validate
+
+train_groups = groups.iloc[train_idx]
+
+group_cv = GroupKFold(n_splits=5)
+
+linear_cv = cross_validate(
+    linear_pipeline,
+    X_train,
+    y_train,
+    groups=train_groups,
+    cv=group_cv,
+    scoring={
+        "MAE": "neg_mean_absolute_error",
+        "RMSE": "neg_root_mean_squared_error",
+        "R2": "r2",
+    },
+    n_jobs=-1,
+)
+```
+
+The `cross_validate()` function evaluated the Linear Regression pipeline using three complementary regression metrics.
+
+Scikit-learn returns negative values for MAE and RMSE because its scoring framework assumes that higher scores are preferable.
+
+The signs were reversed when reporting these error metrics so that lower positive values represent better predictive performance.
+
+Because `StandardScaler` was included inside the Linear Regression pipeline, the scaler was fitted separately on the training portion of each fold.
+
+This prevents validation observations from influencing the preprocessing parameters.
+
+#### Linear Regression Cross-Validation Results
+
+The five-fold cross-validation produced the following mean results:
+
+| Evaluation Metric | Training Performance | Cross-Validation Mean |
+|---|---:|---:|
+| MAE | 4.353 Å | 4.355 Å |
+| RMSE | 5.201 Å | 5.203 Å |
+| R² | 0.282 | 0.281 |
+
+The cross-validation metrics were almost identical to the training metrics.
+
+The MAE increased by only approximately 0.002 Å, while RMSE increased by approximately 0.002 Å.
+
+The R² decreased slightly from 0.282 to 0.281.
+
+#### Interpretation
+
+The similarity between training and validation performance suggests that Linear Regression exhibits limited overfitting under the selected cross-validation strategy.
+
+However, the relatively low R² indicates that the model explains only approximately 28% of the variation in RMSD.
+
+Therefore, the main limitation appears to be the predictive capacity of the linear model rather than a substantial training-validation performance gap.
+
+This supports investigating nonlinear regression algorithms that can capture more complex relationships and interactions between the numerical descriptors.
+
+#### Limitations of the Validation Strategy
+
+Although GroupKFold prevents identical predictor combinations from appearing in both training and validation folds, it does not guarantee that biologically related protein models are separated.
+
+The dataset does not include protein identifiers or family annotations that would enable protein-level grouping.
+
+Consequently, the cross-validation results estimate performance on held-out predictor combinations, rather than proving generalization to entirely unseen proteins or protein families.
+
+#### Conclusion
+
+Five-fold GroupKFold cross-validation demonstrated that Linear Regression produced consistent training and validation results.
+
+However, its limited explanatory power motivated the evaluation of more flexible nonlinear ensemble algorithms.
+
+The same group-aware cross-validation strategy was subsequently used to compare Random Forest and HistGradientBoosting Regression under consistent evaluation conditions.
+
+### 5. Random Forest Regression
+
+Following the evaluation of Linear Regression, Random Forest Regression was implemented to investigate whether nonlinear relationships and interactions between the nine numerical descriptors (F1–F9) could improve RMSD prediction.
+
+Random Forest is an ensemble-learning algorithm that combines predictions from multiple decision trees.
+
+Unlike Linear Regression, Random Forest does not assume that the relationship between predictors and the target variable is linear.
+
+This makes it suitable for exploring complex relationships in datasets containing correlated numerical predictors and heterogeneous target values.
+
+#### How Random Forest Works
+
+Random Forest constructs multiple decision trees using bootstrap samples of the training dataset.
+
+Each tree learns a series of decision rules that partition the feature space into regions with similar target values.
+
+For regression, the predictions of the individual trees are averaged to generate the final prediction.
+
+The ensemble prediction can be expressed as:
+
+\[
+\widehat{RMSD} = \frac{1}{T}\sum_{t=1}^{T}f_t(X)
+\]
+
+Where:
+
+- \(T\) represents the number of decision trees.
+- \(f_t(X)\) is the prediction generated by tree \(t\).
+- \(X\) represents the nine numerical descriptors.
+
+Averaging predictions across multiple trees can reduce prediction variance compared with relying on a single decision tree.
+
+#### Model Configuration
+
+The initial Random Forest model was configured with the following hyperparameters:
+
+| Hyperparameter | Value | Purpose |
+|---|---:|---|
+| `n_estimators` | 100 | Number of decision trees |
+| `max_depth` | 15 | Maximum tree depth |
+| `min_samples_leaf` | 2 | Minimum observations required in each leaf |
+| `random_state` | 42 | Reproducibility |
+| `n_jobs` | -1 | Parallel tree construction |
+
+The maximum tree depth and minimum leaf size were used to limit tree complexity.
+
+Unlike the Linear Regression pipeline, Random Forest did not require feature standardization because tree-based splitting depends on feature thresholds rather than distances or coefficient magnitudes.
+
+#### Model Implementation
+
+The model was implemented using scikit-learn:
+
+```python
+from sklearn.ensemble import RandomForestRegressor
+
+rf_model = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=15,
+    min_samples_leaf=2,
+    random_state=42,
+    n_jobs=-1,
+)
+
+rf_model.fit(X_train, y_train)
+
+y_train_pred_rf = rf_model.predict(X_train)
+```
+
+The model was trained using only the training dataset.
+
+The independent test dataset remained excluded from model development.
+
+#### Training Performance
+
+The fitted model was initially evaluated on the training dataset.
+
+| Metric | Random Forest Training |
+|---|---:|
+| MAE | 1.685 Å |
+| RMSE | 2.387 Å |
+| R² | 0.849 |
+
+The training MAE of 1.685 Å indicates that the model's predictions differed from the observed RMSD values by approximately 1.69 Å on average.
+
+The training R² of 0.849 indicates that the model explained approximately 84.9% of the observed RMSD variance within the training dataset.
+
+These results represent a substantial improvement over Linear Regression.
+
+However, strong training performance does not necessarily indicate that a model will generalize equally well to unseen observations.
+
+#### Five-Fold Group-Aware Cross-Validation
+
+To evaluate generalization, the Random Forest model was assessed using the same five-fold `GroupKFold` strategy applied to Linear Regression.
+
+The validation procedure ensured that identical combinations of F1–F9 values were not distributed across training and validation subsets within the same fold.
+
+The implementation used `cross_validate()` with MAE, RMSE, and R² as evaluation metrics.
+
+```python
+rf_cv = cross_validate(
+    rf_model,
+    X_train,
+    y_train,
+    groups=train_groups,
+    cv=group_cv,
+    scoring={
+        "MAE": "neg_mean_absolute_error",
+        "RMSE": "neg_root_mean_squared_error",
+        "R2": "r2",
+    },
+    n_jobs=2,
+)
+```
+
+The mean cross-validation results were:
+
+| Metric | Training | Five-Fold Cross-Validation |
+|---|---:|---:|
+| MAE | 1.685 Å | 2.677 Å |
+| RMSE | 2.387 Å | 3.771 Å |
+| R² | 0.849 | 0.622 |
+
+#### Comparison with Linear Regression
+
+The cross-validation results were compared with those obtained using Linear Regression.
+
+| Metric | Linear Regression CV | Random Forest CV |
+|---|---:|---:|
+| MAE | 4.355 Å | 2.677 Å |
+| RMSE | 5.203 Å | 3.771 Å |
+| R² | 0.281 | 0.622 |
+
+Random Forest achieved a reduction of approximately **38.5% in cross-validation MAE** compared with Linear Regression.
+
+RMSE decreased by approximately 27.5%, while R² increased from 0.281 to 0.622.
+
+These improvements suggest that nonlinear relationships and interactions between the descriptors contribute substantially to RMSD prediction.
+
+#### Investigation of Overfitting
+
+Although Random Forest achieved substantially better predictive accuracy than Linear Regression, its training performance was noticeably stronger than its cross-validation performance.
+
+Training R² was 0.849, compared with a cross-validation R² of 0.622.
+
+Similarly, MAE increased from 1.685 Å during training to 2.677 Å during validation.
+
+This difference suggests that the model exhibits some overfitting under the selected configuration.
+
+The ensemble learns relationships that fit the training observations particularly well but do not transfer completely to held-out predictor combinations.
+
+Controlling tree depth, minimum leaf size, and other hyperparameters may help improve the balance between model complexity and generalization.
+
+#### Interpretation and Limitations
+
+The results demonstrate that Random Forest can capture useful predictive relationships that are not adequately represented by Linear Regression.
+
+However, several limitations remain:
+
+- The model exhibits a noticeable training-validation performance gap.
+- The available descriptors do not explain all RMSD variability.
+- Strongly correlated predictors may complicate feature-importance interpretation.
+- Group-aware validation prevents identical predictor combinations from crossing folds but cannot guarantee independence between biologically related proteins.
+
+The observed improvements demonstrate stronger predictive performance under the chosen validation procedure, rather than establishing a causal relationship between the descriptors and RMSD.
+
+#### Conclusion
+
+Random Forest substantially outperformed Linear Regression during five-fold group-aware cross-validation.
+
+Its cross-validation performance was:
+
+- **MAE:** 2.677 Å
+- **RMSE:** 3.771 Å
+- **R²:** 0.622
+
+These results indicate that nonlinear ensemble methods provide a promising approach to predicting RMSD from the nine numerical descriptors.
+
+Nevertheless, the training-validation performance gap suggests that further optimization may improve generalization.
+
+Random Forest was therefore retained as a promising candidate for subsequent model comparison and hyperparameter tuning.
+
+### 6. HistGradientBoosting Regression
+
+HistGradientBoosting Regression was implemented as an alternative nonlinear ensemble-learning algorithm for predicting protein structural deviation (RMSD) from the nine numerical descriptors (F1–F9).
+
+The objective was to investigate whether a gradient-boosting approach could capture complex relationships between the input features and RMSD while achieving competitive generalization performance.
+
+#### How HistGradientBoosting Works
+
+HistGradientBoosting is an ensemble-learning algorithm that constructs decision trees sequentially.
+
+Unlike Random Forest, which combines predictions from multiple independently constructed trees, gradient boosting builds each new tree to improve the predictions of the existing ensemble.
+
+For squared-error regression, successive trees are fitted to information derived from the prediction errors of the current model.
+
+The algorithm uses histogram-based binning to group continuous feature values into discrete intervals, improving computational efficiency.
+
+This approach is particularly useful for relatively large numerical datasets.
+
+HistGradientBoosting can capture nonlinear relationships and interactions between predictors without requiring feature standardization.
+
+#### Model Configuration
+
+The initial model was configured using the following hyperparameters:
+
+| Hyperparameter | Value | Purpose |
+|---|---:|---|
+| `learning_rate` | 0.1 | Controls the contribution of each boosting iteration |
+| `max_iter` | 100 | Maximum number of boosting iterations |
+| `max_leaf_nodes` | 15 | Maximum number of leaf nodes per tree |
+| `random_state` | 42 | Ensures reproducibility |
+
+The learning rate and maximum number of leaf nodes influence the balance between model complexity and generalization.
+
+#### Model Implementation
+
+The model was implemented using scikit-learn:
+
+```python
+from sklearn.ensemble import HistGradientBoostingRegressor
+
+hgb_model = HistGradientBoostingRegressor(
+    learning_rate=0.1, max_iter=100, max_leaf_nodes=15, random_state=42
+)
+
+hgb_model.fit(X_train, y_train)
+
+y_train_pred_hgb = hgb_model.predict(X_train)
+```
+
+The model was trained using the training dataset, while the independent test dataset remained reserved for final evaluation.
+
+#### Training Performance
+
+The initial training evaluation produced the following results:
+
+| Metric | Training Performance |
+|---|---:|
+| MAE | 3.321 Å |
+| RMSE | 4.262 Å |
+| R² | 0.518 |
+
+The model achieved a training MAE of 3.321 Å and explained approximately 51.8% of the observed RMSD variance in the training dataset.
+
+These results represent an improvement over Linear Regression but are less accurate than those obtained using Random Forest.
+
+#### Five-Fold Group-Aware Cross-Validation
+
+To evaluate generalization, HistGradientBoosting was assessed using the same five-fold `GroupKFold` strategy applied to the previous models.
+
+This ensured that identical F1–F9 predictor combinations were kept together within each cross-validation split.
+
+```python
+hgb_cv = cross_validate(
+    hgb_model,
+    X_train,
+    y_train,
+    groups=train_groups,
+    cv=group_cv,
+    scoring={
+        "MAE": "neg_mean_absolute_error",
+        "RMSE": "neg_root_mean_squared_error",
+        "R2": "r2",
+    },
+    n_jobs=2,
+)
+```
+
+The mean cross-validation results were:
+
+| Metric | Training | Five-Fold Cross-Validation |
+|---|---:|---:|
+| MAE | 3.321 Å | 3.415 Å |
+| RMSE | 4.262 Å | 4.393 Å |
+| R² | 0.518 | 0.488 |
+
+The cross-validation MAE increased by approximately 0.094 Å compared with training performance.
+
+Similarly, RMSE increased by 0.131 Å, while R² decreased from 0.518 to 0.488.
+
+These relatively small differences suggest limited apparent overfitting under the selected model configuration.
+
+However, the cross-validation R² of 0.488 indicates that substantial variability in RMSD remains unexplained.
+
+#### Comparison with Previous Models
+
+The cross-validation results were compared with Linear Regression and Random Forest.
+
+| Model | CV MAE (Å) | CV RMSE (Å) | CV R² |
+|---|---:|---:|---:|
+| Linear Regression | 4.355 | 5.203 | 0.281 |
+| Random Forest | 2.677 | 3.771 | 0.622 |
+| HistGradientBoosting | 3.415 | 4.393 | 0.488 |
+
+HistGradientBoosting reduced cross-validation MAE by approximately **21.6% compared with Linear Regression**.
+
+However, its MAE was approximately 27.6% higher than that of Random Forest.
+
+Random Forest also achieved a lower RMSE and a higher R².
+
+Therefore, Random Forest remained the strongest-performing algorithm among the three initial regression models.
+
+#### Interpretation and Limitations
+
+HistGradientBoosting demonstrated that nonlinear ensemble-learning methods can improve RMSD prediction compared with a simple linear model.
+
+Its relatively small training–validation performance gap suggests a reasonable balance between model complexity and generalization under the tested configuration.
+
+Nevertheless, the algorithm did not achieve the same predictive accuracy as Random Forest.
+
+Several considerations may explain its performance:
+
+- The selected learning rate, number of iterations, and tree complexity may not be optimal.
+- Histogram-based binning introduces an approximation of continuous feature values.
+- The relationships between descriptors and RMSD may favor the Random Forest approach under the tested settings.
+
+These are possible explanations rather than experimentally established causes.
+
+Alternative hyperparameter configurations could potentially improve HistGradientBoosting performance.
+
+#### Conclusion
+
+HistGradientBoosting outperformed Linear Regression but did not surpass Random Forest during five-fold group-aware cross-validation.
+
+Its cross-validation performance was:
+
+- **MAE:** 3.415 Å
+- **RMSE:** 4.393 Å
+- **R²:** 0.488
+
+Although the model exhibited relatively limited apparent overfitting, Random Forest provided the strongest predictive performance among the initial algorithms.
+
+Consequently, Random Forest was selected as the leading candidate for further hyperparameter optimization.
+
+### 7. Model Comparison and Selection
+
+Following the development of Linear Regression, Random Forest, and HistGradientBoosting models, their predictive performance was compared using five-fold group-aware cross-validation.
+
+The objective was to identify the most promising algorithm for subsequent hyperparameter optimization and final evaluation.
+
+#### Model Selection Criteria
+
+Model selection was based primarily on **Mean Absolute Error (MAE)**, with Root Mean Squared Error (RMSE) and the coefficient of determination (R²) used as complementary metrics.
+
+MAE was selected as the primary metric because it expresses the average absolute prediction error directly in ångströms (Å), allowing straightforward interpretation of RMSD prediction accuracy.
+
+RMSE provides additional information by penalizing larger errors more strongly, while R² measures the proportion of target variance explained relative to a constant-mean reference.
+
+All three models were evaluated using the same five-fold GroupKFold cross-validation strategy.
+
+#### Cross-Validation Results
+
+| Model | CV MAE (Å) | CV RMSE (Å) | CV R² |
+|---|---:|---:|---:|
+| **Random Forest** | **2.677** | **3.771** | **0.622** |
+| HistGradientBoosting | 3.415 | 4.393 | 0.488 |
+| Linear Regression | 4.355 | 5.203 | 0.281 |
+
+Random Forest achieved the lowest MAE and RMSE and the highest R².
+
+Compared with Linear Regression, Random Forest reduced cross-validation MAE by approximately 38.5%.
+
+Compared with HistGradientBoosting, Random Forest reduced cross-validation MAE by approximately 21.6%.
+
+#### Visualization of Model Performance
+
+![Comparison of Regression Models](images/model_comparison.png)
+
+*Figure: Comparison of five-fold group-aware cross-validation MAE for Linear Regression, HistGradientBoosting, and Random Forest. Lower MAE values indicate better predictive performance.*
+
+#### Interpretation
+
+The results demonstrate that both nonlinear ensemble algorithms outperformed Linear Regression.
+
+This suggests that nonlinear relationships and interactions between the numerical descriptors contribute useful information for predicting RMSD.
+
+Random Forest provided the strongest predictive performance among the three algorithms.
+
+However, its training performance was noticeably better than its cross-validation performance, indicating some overfitting.
+
+HistGradientBoosting exhibited a smaller training-validation performance gap but achieved lower overall predictive accuracy.
+
+Therefore, the model selection decision was based on validation performance rather than training accuracy alone.
+
+#### Final Model Selection
+
+**Random Forest Regression was selected for hyperparameter optimization.**
+
+The selection was supported by:
+
+- The lowest cross-validation MAE of 2.677 Å.
+- The lowest cross-validation RMSE of 3.771 Å.
+- The highest cross-validation R² of 0.622.
+- Substantial improvements over both Linear Regression and HistGradientBoosting.
+
+The independent test dataset remained excluded from model comparison and selection.
+
+The next stage investigates whether adjusting Random Forest hyperparameters can further improve predictive accuracy and generalization.
 
 
 Welcome,
