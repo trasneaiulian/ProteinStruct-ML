@@ -538,6 +538,252 @@ No outlier removal or feature transformation was performed during the ETL or exp
 
 This decision preserves the original numerical information while allowing the machine-learning models to be evaluated on the observed feature distributions.
 
+### 4. Pearson Correlation Analysis
+
+Correlation analysis was performed to investigate linear relationships between the nine numerical descriptors (F1–F9) and RMSD, as well as relationships among the predictors themselves.
+
+Understanding these relationships is important for identifying potentially informative predictors, detecting multicollinearity, and guiding machine-learning model selection.
+
+#### Pearson Correlation Matrix
+
+The Pearson correlation coefficient measures the direction and strength of a linear relationship between two numerical variables.
+
+Its values range from −1 to +1:
+
+- **+1:** Perfect positive linear relationship.
+- **0:** No linear relationship.
+- **−1:** Perfect negative linear relationship.
+
+A correlation matrix was calculated using Pandas and visualized as a heatmap using Seaborn.
+
+![Pearson Correlation Matrix](images/correlation_heatmap.png)
+
+*Figure: Pearson correlation matrix for RMSD and the nine numerical descriptors (F1–F9). Red indicates positive correlations, blue indicates negative correlations, and values close to zero indicate weak linear associations.*
+
+#### Relationships Between Predictors and RMSD
+
+The Pearson correlation analysis produced the following results:
+
+| Predictor | Pearson Correlation with RMSD |
+|---|---:|
+| F3 | 0.3734 |
+| F4 | −0.1693 |
+| F2 | 0.1584 |
+| F9 | 0.0619 |
+| F6 | −0.0344 |
+| F1 | −0.0131 |
+| F5 | −0.0120 |
+| F7 | −0.0031 |
+| F8 | −0.00003 |
+
+F3 exhibited the strongest individual positive linear association with RMSD (r = 0.3734).
+
+This indicates that higher F3 values tend to be associated with higher RMSD values, although the relationship is far from deterministic.
+
+F4 showed a weak negative correlation (r = −0.1693), while F2 exhibited a weak positive correlation (r = 0.1584).
+
+The remaining descriptors demonstrated weak or negligible individual linear correlations with RMSD.
+
+However, weak Pearson correlations do not necessarily indicate that a predictor lacks predictive value.
+
+Nonlinear relationships and interactions between multiple descriptors may contribute information that cannot be identified through individual Pearson correlation coefficients.
+
+#### Multicollinearity Among Predictors
+
+The correlation matrix also revealed strong relationships between several input variables.
+
+| Predictor Pair | Pearson Correlation |
+|---|---:|
+| F1 and F5 | Approximately +1.00 |
+| F1 and F6 | +0.97 |
+| F5 and F6 | +0.96 |
+| F4 and F6 | +0.94 |
+| F1 and F9 | −0.90 |
+
+These results indicate substantial multicollinearity among several descriptors.
+
+Multicollinearity occurs when two or more predictors contain strongly overlapping linear information.
+
+This can complicate the interpretation of individual regression coefficients because it becomes difficult to separate the contributions of highly correlated variables.
+
+For example, F1 and F5 exhibit an almost perfect positive correlation, suggesting considerable redundancy in their numerical variation.
+
+However, strong correlation alone does not establish that either variable should be removed.
+
+#### Implications for Machine Learning
+
+The correlation analysis provides several insights for model development:
+
+1. **Linear Regression:** A useful benchmark for investigating linear relationships, although multicollinearity may affect coefficient stability and interpretation.
+
+2. **Random Forest Regression:** Can capture nonlinear relationships and interactions between predictors without requiring a linear relationship with RMSD.
+
+3. **HistGradientBoosting Regression:** Provides another nonlinear modeling approach capable of learning more complex relationships.
+
+4. **Feature Selection:** Highly correlated predictors may contain redundant information, but removing them should be justified by validation performance rather than correlation alone.
+
+5. **Predictive Interpretation:** Individual correlations describe associations, not causal relationships or the complete predictive contribution of each feature.
+
+#### Conclusion
+
+F3 demonstrated the strongest individual linear association with RMSD, while substantial multicollinearity was observed among several other predictors.
+
+These findings support comparing linear regression with nonlinear ensemble methods to determine whether more complex relationships improve predictive performance.
+
+**All nine predictors were retained for the initial machine-learning experiments.**
+
+### 5. Relationship Between F3 and RMSD
+
+Following the Pearson correlation analysis, the relationship between F3 and RMSD was investigated in greater detail.
+
+F3 was selected because it exhibited the strongest individual linear correlation with RMSD among the nine numerical descriptors (r = 0.3734).
+
+A scatter plot was generated using Seaborn to visualize the relationship between F3 values and the corresponding structural deviations.
+
+#### Visualization of F3 and RMSD
+
+![Relationship Between F3 and RMSD](images/f3_rmsd_scatter.png)
+
+*Figure: Scatter plot showing the relationship between F3 and RMSD in the cleaned CASP dataset. Each point represents an observation. Transparency was applied to improve visualization in regions with overlapping observations.*
+
+#### Key Findings
+
+The scatter plot revealed a complex relationship between F3 and RMSD.
+
+Although a moderate positive correlation was observed, the data points showed considerable dispersion.
+
+Two broad concentrations of RMSD values were visible, consistent with the apparently bimodal distribution identified during the initial target-variable analysis.
+
+Furthermore, observations with similar F3 values frequently exhibited substantially different RMSD values.
+
+This indicates that F3 alone cannot adequately explain the variability in protein structural deviation.
+
+The relationship also does not appear to follow a simple linear pattern.
+
+#### Implications for Machine Learning
+
+These observations suggest several important considerations:
+
+- **Linear relationships:** F3 provides some information about RMSD, but its individual linear association is insufficient to explain most of the variation.
+- **Nonlinear relationships:** More flexible algorithms may capture patterns that are not represented by a simple linear regression.
+- **Feature interactions:** Combining F3 with other descriptors may improve predictive performance.
+- **Model evaluation:** The relative performance of linear and nonlinear algorithms must be determined experimentally using appropriate validation procedures.
+
+#### Conclusion
+
+F3 is the predictor with the strongest individual linear association with RMSD in this dataset.
+
+However, the scatter plot demonstrates that the relationship contains substantial variability and cannot be adequately described using F3 alone.
+
+This finding provides further motivation for evaluating multivariable regression models, including Random Forest and HistGradientBoosting.
+
+### 6. Statistical Hypothesis Testing — F3 and RMSD
+
+Following the exploratory correlation analysis, a formal statistical hypothesis test was performed to determine whether the observed association between F3 and RMSD was statistically significant.
+
+The analysis was conducted using Pearson's correlation test from the SciPy library.
+
+#### Research Question
+
+**Is there a statistically significant linear association between descriptor F3 and RMSD?**
+
+#### Null and Alternative Hypotheses
+
+Two hypotheses were formulated:
+
+- **Null hypothesis (H₀):** There is no linear correlation between F3 and RMSD in the underlying population (ρ = 0).
+- **Alternative hypothesis (H₁):** There is a nonzero linear correlation between F3 and RMSD in the underlying population (ρ ≠ 0).
+
+A two-sided statistical test was performed using a significance level of α = 0.05.
+
+The decision rule was:
+
+- If p < 0.05, reject the null hypothesis.
+- If p ≥ 0.05, fail to reject the null hypothesis.
+
+#### Statistical Method
+
+The Pearson correlation test was implemented using SciPy:
+
+```python
+from scipy.stats import pearsonr
+
+r_value, p_value = pearsonr(df["F3"], df["RMSD"])
+```
+
+This function calculates the Pearson correlation coefficient and evaluates the statistical evidence against the null hypothesis of zero population correlation.
+
+#### Hypothesis Test Results
+
+| Statistical Measure | Result |
+|---|---|
+| Pearson correlation coefficient | 0.3734 |
+| P-value | Extremely small (displayed as 0.000e+00) |
+| Significance level | 0.05 |
+| Statistical decision | Reject H₀ |
+| Direction of association | Positive |
+| Squared correlation coefficient (r²) | Approximately 0.139 |
+
+The p-value was considerably smaller than the significance threshold of 0.05.
+
+Therefore, the null hypothesis of zero population correlation was rejected under the assumptions of the Pearson correlation test.
+
+The reported p-value of 0.000e+00 reflects numerical underflow and should not be interpreted as a mathematically exact probability of zero.
+
+#### Interpretation of the Results
+
+The Pearson correlation coefficient of 0.3734 indicates a moderate positive linear association between F3 and RMSD.
+
+In general, higher F3 values tend to be associated with higher RMSD values.
+
+However, the correlation is not sufficiently strong to explain most of the observed variability in RMSD.
+
+The squared correlation coefficient provides an additional interpretation:
+
+**r² = 0.3734² ≈ 0.139**
+
+This indicates that a simple linear regression model using F3 alone, with an intercept, would explain approximately 13.9% of the observed RMSD variance in the analyzed dataset.
+
+Consequently, approximately 86.1% of the variance would remain unexplained by that single-predictor linear model.
+
+This supports investigating additional descriptors and more flexible machine-learning algorithms.
+
+#### Statistical Limitations
+
+Several limitations must be considered when interpreting these findings.
+
+**1. Statistical significance does not imply causation**
+
+The observed association does not establish that F3 directly influences protein structural deviation.
+
+**2. Large sample size**
+
+The dataset contains 44,019 observations. With such a large sample, even moderate correlations can produce extremely small p-values.
+
+Therefore, statistical significance should be distinguished from predictive usefulness.
+
+**3. Independence of observations**
+
+The CASP dataset does not provide protein identifiers that would allow the independence of observations to be fully verified.
+
+Related protein models may be represented in the dataset, potentially violating the independence assumption of the Pearson correlation test.
+
+Consequently, the reported p-value should be interpreted cautiously.
+
+**4. Linear association only**
+
+Pearson's correlation coefficient measures linear relationships.
+
+It does not capture all possible nonlinear relationships or interactions between multiple predictors.
+
+#### Conclusion
+
+The hypothesis test identified a statistically significant positive association between F3 and RMSD under the test assumptions.
+
+However, the moderate correlation and limited explanatory power of F3 alone indicate that additional predictors and potentially nonlinear relationships should be investigated.
+
+These findings provide statistical motivation for the subsequent machine-learning experiments using Linear Regression, Random Forest Regression, and HistGradientBoosting Regression.
+
 
 
 
