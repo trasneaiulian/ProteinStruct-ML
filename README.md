@@ -1,6 +1,118 @@
 # ![CI logo](https://codeinstitute.s3.amazonaws.com/fullstack/ci_logo_small.png)
 
-## Template Instructions
+# ProteinStruct-ML: Predicting Protein Structural Deviation Using Machine Learning
+
+## Project Overview
+
+Proteins are biological macromolecules involved in nearly every process occurring within living cells. Their functions depend not only on their amino acid sequences but also on the three-dimensional structures they adopt.
+
+Understanding protein structure is therefore essential for investigating biological mechanisms, interpreting protein function, and supporting research in biotechnology, molecular biology, and drug discovery.
+
+Experimentally determining protein structures can require substantial time and resources. Computational approaches provide an alternative by generating structural models, but these models can vary considerably in their accuracy.
+
+Assessing the quality of predicted protein structures is consequently an important problem in structural bioinformatics.
+
+This project investigates whether machine-learning algorithms can predict protein structural deviation using numerical descriptors associated with computational protein models.
+
+The analysis uses the **CASP dataset**, which contains nine numerical input features (F1–F9) and a target variable representing structural deviation, expressed as Root Mean Square Deviation (RMSD).
+
+The project follows a complete data-science workflow, including:
+
+- data extraction, cleaning, and validation;
+- exploratory data analysis and statistical testing;
+- development and comparison of regression models;
+- hyperparameter optimization and cross-validation;
+- evaluation of predictive performance;
+- and deployment of an interactive application using Streamlit and Heroku.
+
+The final application allows users to explore the dataset, review model performance, and generate RMSD predictions from numerical input features.
+
+## Understanding the Biological Context
+
+### Protein Structure
+
+Proteins consist of amino acids connected into polypeptide chains. These chains fold into three-dimensional structures that influence how proteins interact with other molecules and perform their biological functions.
+
+Protein structure is commonly described at several organizational levels:
+
+- **Primary structure:** The amino acid sequence.
+- **Secondary structure:** Local structural arrangements such as alpha helices and beta sheets.
+- **Tertiary structure:** The overall three-dimensional organization of a polypeptide chain.
+- **Quaternary structure:** The arrangement of multiple polypeptide chains within a protein complex.
+
+The three-dimensional organization of a protein is particularly important because changes in structural conformation can influence its biological activity.
+
+### Experimental and Computational Protein Structures
+
+Protein structures can be determined experimentally using techniques such as X-ray crystallography, nuclear magnetic resonance (NMR) spectroscopy, and cryogenic electron microscopy (cryo-EM).
+
+Computational methods can also generate structural models based on amino acid sequences and other available information.
+
+However, computational models are not necessarily identical to experimentally determined reference structures.
+
+Evaluating the differences between predicted and reference structures is therefore important when assessing structural model quality.
+
+### Root Mean Square Deviation (RMSD)
+
+Root Mean Square Deviation is a commonly used measure of structural difference between corresponding atoms in two molecular structures.
+
+After appropriate structural alignment, RMSD can be expressed as:
+
+\[
+\mathrm{RMSD} = \sqrt{\frac{1}{N}\sum_{i=1}^{N}\left\|\mathbf{r}_i-\mathbf{r}_i^{\mathrm{ref}}\right\|^2}
+\]
+
+where:
+
+- \(N\) is the number of corresponding atoms;
+- \(\mathbf{r}_i\) is the position of atom \(i\) in the evaluated structure;
+- \(\mathbf{r}_i^{\mathrm{ref}}\) is the corresponding position in the reference structure.
+
+RMSD is commonly expressed in ångströms (Å), where 1 Å equals 0.1 nanometres.
+
+A smaller RMSD generally indicates greater structural similarity between the compared atomic coordinates, whereas a larger RMSD indicates greater structural deviation.
+
+RMSD depends on the atoms selected, their correspondence, and the alignment procedure. It should therefore be interpreted in the context of how the structures were compared.
+
+### Machine Learning for Structural Deviation Prediction
+
+Machine learning provides methods for identifying statistical relationships between input variables and an outcome of interest.
+
+In supervised regression, an algorithm learns from observations for which both the input features and the target values are known.
+
+After training, the model can estimate the target variable for new observations.
+
+In ProteinStruct-ML, the input consists of nine numerical descriptors (F1–F9), while RMSD is the continuous target variable.
+
+The central question is whether these descriptors contain sufficient predictive information to estimate structural deviation with useful accuracy.
+
+This project compares several regression approaches and evaluates their performance on data not used during model training.
+
+## Project Objectives
+
+The overall objective of ProteinStruct-ML is to investigate whether machine-learning algorithms can accurately estimate protein structural deviation (RMSD) using numerical descriptors from the CASP dataset.
+
+The project combines exploratory statistical analysis with supervised machine learning to evaluate relationships between structural descriptors and RMSD.
+
+The specific objectives are to:
+
+1. **Prepare a reliable dataset:** Inspect the original CASP dataset for missing values, duplicate records, inconsistent data types, and potentially unusual observations.
+
+2. **Explore structural descriptors:** Investigate the distributions of RMSD and the nine numerical features (F1–F9), identify extreme observations, and examine relationships between variables.
+
+3. **Evaluate statistical relationships:** Use correlation analysis and hypothesis testing to determine whether selected descriptors are statistically associated with RMSD.
+
+4. **Develop regression models:** Establish a baseline prediction using DummyRegressor and compare the performance of Linear Regression, Random Forest Regression, and HistGradientBoosting Regression.
+
+5. **Optimize model performance:** Apply cross-validation and hyperparameter optimization to identify suitable model configurations.
+
+
+
+
+
+
+
+
 
 Welcome,
 
