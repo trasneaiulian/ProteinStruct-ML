@@ -1673,6 +1673,475 @@ The independent test dataset remained excluded from model comparison and selecti
 
 The next stage investigates whether adjusting Random Forest hyperparameters can further improve predictive accuracy and generalization.
 
+### 8. Random Forest Hyperparameter Optimization
+
+Following the comparison of Linear Regression, Random Forest, and HistGradientBoosting, Random Forest was selected for further optimization because it achieved the best predictive performance during five-fold group-aware cross-validation.
+
+The objective of hyperparameter optimization was to improve RMSD prediction accuracy while controlling model complexity and generalization performance.
+
+Two complementary optimization approaches were investigated:
+
+1. RandomizedSearchCV for exploring a range of hyperparameter combinations.
+2. GridSearchCV for evaluating a smaller, focused set of configurations.
+
+Both approaches used Mean Absolute Error (MAE) as the optimization metric and five-fold GroupKFold cross-validation.
+
+#### Hyperparameters Investigated
+
+Hyperparameters determine how the Random Forest algorithm constructs its decision trees and controls model complexity.
+
+The following parameters were investigated:
+
+| Hyperparameter | Description |
+|---|---|
+| `n_estimators` | Number of decision trees in the ensemble |
+| `max_depth` | Maximum depth allowed for individual trees |
+| `min_samples_leaf` | Minimum number of training observations required in a leaf |
+| `max_features` | Proportion of predictors considered when searching for the best split |
+
+These parameters influence the balance between fitting complex relationships and generalizing to unseen observations.
+
+#### RandomizedSearchCV
+
+RandomizedSearchCV evaluates a specified number of randomly selected hyperparameter combinations from a predefined search space.
+
+This approach is computationally more efficient than evaluating every possible combination when the search space is relatively large.
+
+The following search space was defined:
+
+```python
+rf_param_grid = {
+    "n_estimators": [80, 100, 150],
+    "max_depth": [10, 15, 20, None],
+    "min_samples_leaf": [1, 2, 4],
+    "max_features": [0.7, 1.0],
+}
+```
+
+The complete search space contained 72 possible combinations.
+
+Eight configurations were sampled using a fixed random seed to ensure reproducibility.
+
+#### Randomized Search Implementation
+
+```python
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestRegressor
+
+rf_tuning_model = RandomForestRegressor(random_state=42, n_jobs=2)
+
+rf_search = RandomizedSearchCV(
+    estimator=rf_tuning_model,
+    param_distributions=rf_param_grid,
+    n_iter=8,
+    scoring="neg_mean_absolute_error",
+    cv=group_cv,
+    random_state=42,
+    n_jobs=1,
+    verbose=1,
+    refit=True,
+)
+
+rf_search.fit(X_train, y_train, groups=train_groups)
+```
+
+Five-fold GroupKFold cross-validation was used throughout optimization.
+
+The search evaluated eight configurations across five folds, resulting in **40 cross-validation fits**.
+
+The independent test dataset was not used during optimization.
+
+#### RandomizedSearchCV Results
+
+The best configuration identified by RandomizedSearchCV was:
+
+| Hyperparameter | Best Value |
+|---|---:|
+| `n_estimators` | 150 |
+| `max_depth` | 20 |
+| `min_samples_leaf` | 2 |
+| `max_features` | 1.0 |
+
+**Best cross-validation MAE: 2.566 Å**
+
+Compared with the initial Random Forest model, the optimized configuration used more trees and allowed greater maximum tree depth.
+
+These changes may allow the model to represent more complex relationships between the numerical descriptors and RMSD.
+
+However, the improvement must be assessed using validation results rather than model complexity alone.
+
+#### GridSearchCV Fine-Tuning
+
+Following RandomizedSearchCV, a focused GridSearchCV was performed to investigate a smaller set of configurations around the promising parameter values.
+
+Unlike RandomizedSearchCV, GridSearchCV evaluates every combination within the specified grid.
+
+The following parameter grid was used:
+
+```python
+param_grid = {
+    "n_estimators": [100, 150],
+    "max_depth": [15, 20],
+    "min_samples_leaf": [2, 3],
+}
+```
+
+The `max_features` parameter was fixed at 1.0.
+
+This resulted in eight candidate configurations evaluated using five-fold GroupKFold cross-validation.
+
+#### GridSearchCV Results
+
+GridSearchCV identified the following best configuration:
+
+| Hyperparameter | Best Value |
+|---|---:|
+| `n_estimators` | 150 |
+| `max_depth` | 20 |
+| `min_samples_leaf` | 2 |
+| `max_features` | 1.0 (fixed) |
+
+**Best cross-validation MAE: 2.566 Å**
+
+The best configuration matched the one identified by RandomizedSearchCV.
+
+The additional grid search therefore did not produce a meaningful improvement in the selected model's cross-validation performance.
+
+#### Comparison Before and After Optimization
+
+| Model Configuration | CV MAE (Å) |
+|---|---:|
+| Initial Random Forest | 2.677 |
+| RandomizedSearchCV best model | 2.566 |
+| GridSearchCV best model | 2.566 |
+
+Hyperparameter optimization reduced cross-validation MAE by approximately **4.1%** compared with the initial Random Forest configuration.
+
+Although the improvement was smaller than the difference between Linear Regression and Random Forest, it demonstrated that adjusting ensemble complexity could further improve predictive accuracy.
+
+#### Interpretation and Limitations
+
+The optimization results suggest that increasing tree depth and ensemble size improved validation performance within the tested configurations.
+
+However, several limitations should be considered.
+
+- RandomizedSearchCV evaluated only eight of the 72 possible configurations.
+- GridSearchCV explored a limited region of the parameter space.
+- The same cross-validation results were used to select hyperparameters, so the best reported validation score may contain some selection optimism.
+- More extensive searches could potentially identify alternative configurations, but would increase computational cost.
+- Group-aware cross-validation reduces leakage from identical predictor combinations but cannot guarantee biological independence between protein models.
+
+Therefore, the optimized cross-validation score should not be treated as an independent estimate of final predictive performance.
+
+#### Final Model Selection
+
+The optimized Random Forest identified by RandomizedSearchCV was retained as the final candidate for independent test evaluation.
+
+The selected configuration contained:
+
+- 150 decision trees.
+- Maximum tree depth of 20.
+- Minimum of two samples per leaf.
+- All nine features available for consideration at each split (`max_features=1.0`).
+
+The final fitted model was retrieved using:
+
+```python
+best_rf_model = rf_search.best_estimator_
+```
+
+This model was subsequently evaluated on the held-out test dataset to estimate its predictive performance on observations excluded from training and hyperparameter selection.
+
+### 9. Final Model Evaluation on Held-Out Test Data
+
+Following hyperparameter optimization, the selected Random Forest model was evaluated on the independent test dataset.
+
+The purpose of this evaluation was to estimate how well the model generalizes to observations that were excluded from training, cross-validation, and hyperparameter selection.
+
+The test dataset contained **8,809 observations**, separated from the training dataset using GroupShuffleSplit.
+
+#### Final Model Configuration
+
+The final model was obtained from the best estimator identified by RandomizedSearchCV.
+
+```python
+best_rf_model = rf_search.best_estimator_
+```
+
+The optimized configuration included:
+
+| Hyperparameter | Value |
+|---|---:|
+| Number of trees | 150 |
+| Maximum tree depth | 20 |
+| Minimum samples per leaf | 2 |
+| Maximum features | 1.0 |
+
+#### Independent Test Evaluation
+
+Predictions were generated using the held-out test dataset:
+
+```python
+y_test_pred = best_rf_model.predict(X_test)
+
+test_mae = mean_absolute_error(y_test, y_test_pred)
+test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
+test_r2 = r2_score(y_test, y_test_pred)
+```
+
+The final results were:
+
+| Evaluation Metric | Test Performance |
+|---|---:|
+| Mean Absolute Error (MAE) | 2.532 Å |
+| Root Mean Squared Error (RMSE) | 3.661 Å |
+| Coefficient of Determination (R²) | 0.644 |
+
+The MAE of 2.532 Å indicates that predictions differed from the observed RMSD values by approximately 2.53 Å on average.
+
+The RMSE of 3.661 Å is higher than the MAE because it penalizes larger prediction errors more strongly.
+
+The R² value of 0.644 indicates that the model explains approximately 64.4% of the observed RMSD variance in the test dataset.
+
+The test MAE was slightly lower than the optimized cross-validation MAE of 2.566 Å, suggesting reasonably consistent performance between validation and independent testing.
+
+#### Actual Versus Predicted RMSD
+
+To investigate model performance visually, observed RMSD values were plotted against predicted values.
+
+![Actual Versus Predicted RMSD](images/actual_vs_predicted_rmsd.png)
+
+*Figure: Observed versus predicted RMSD for the optimized Random Forest on the held-out test dataset. The dashed diagonal represents perfect predictions. Points above the diagonal indicate overestimation, while points below indicate underestimation.*
+
+The scatter plot revealed a positive association between observed and predicted RMSD values.
+
+However, systematic patterns were visible:
+
+- **Low RMSD values:** Predictions frequently exceeded the observed values.
+- **Intermediate RMSD values:** Predictions showed considerable dispersion.
+- **High RMSD values:** Predictions frequently fell below the observed values.
+
+These patterns suggest that the model's predictions are compressed toward intermediate RMSD values.
+
+Consequently, the model does not reproduce the full range of structural deviations equally accurately.
+
+#### Residual Analysis
+
+Residuals were calculated as the difference between observed and predicted RMSD:
+
+\[
+Residual = RMSD_{observed} - RMSD_{predicted}
+\]
+
+Positive residuals indicate underestimation, while negative residuals indicate overestimation.
+
+![Random Forest Residual Analysis](images/rf_residuals.png)
+
+*Figure: Residuals plotted against observed RMSD values. The dashed horizontal line indicates zero prediction error.*
+
+The residual plot revealed systematic differences across the target range.
+
+At lower RMSD values, residuals were predominantly negative, indicating overestimation.
+
+At higher RMSD values, residuals became predominantly positive, indicating underestimation.
+
+The spread of residuals also appeared to increase at higher RMSD values.
+
+These findings suggest that overall evaluation metrics alone do not fully describe the model's behavior across different structural deviations.
+
+Because residuals are plotted against observed RMSD, the plot should be interpreted as an exploratory diagnostic rather than a standalone test of regression assumptions.
+
+#### Prediction Error by RMSD Range
+
+To investigate these patterns quantitatively, test observations were divided into three exploratory categories.
+
+These categories were selected for error analysis and should not be interpreted as universal thresholds for protein structure quality.
+
+| RMSD Category | Sample Size | MAE (Å) | Mean Residual (Å) |
+|---|---:|---:|---:|
+| Low (<5 Å) | 4,287 | 1.795 | −1.711 |
+| Intermediate (5–10 Å) | 1,192 | 2.404 | −1.520 |
+| High (≥10 Å) | 3,330 | 3.527 | +3.138 |
+
+**Low RMSD observations**
+
+The model achieved its lowest MAE of 1.795 Å in this category.
+
+However, the negative mean residual of −1.711 Å indicates a tendency to overestimate structural deviation.
+
+**Intermediate RMSD observations**
+
+The MAE increased to 2.404 Å, with a mean residual of −1.520 Å.
+
+The model continued to exhibit a tendency toward overestimation.
+
+**High RMSD observations**
+
+The highest MAE of 3.527 Å occurred in this category.
+
+The positive mean residual of +3.138 Å indicates substantial underestimation of structural deviation.
+
+#### Scientific Interpretation
+
+The optimized Random Forest successfully learned predictive relationships between the numerical descriptors and RMSD.
+
+However, its performance was not uniform across the target range.
+
+The model was more accurate for low-RMSD observations and less accurate for observations with substantial structural deviation.
+
+This is important because high RMSD values may represent protein models that differ considerably from their reference structures.
+
+Underestimating these values could make a structurally divergent model appear closer to the reference structure than it actually is.
+
+Therefore, predictions should be interpreted with particular caution for observations associated with high structural deviation.
+
+#### Limitations
+
+Several limitations remain:
+
+- The model does not explain all variation in RMSD.
+- Prediction errors increase for high-RMSD observations.
+- Systematic overestimation and underestimation patterns are present.
+- The dataset does not provide protein identifiers for evaluating generalization to entirely unseen protein families.
+- The model predicts RMSD from numerical descriptors rather than generating or experimentally validating protein structures.
+
+#### Conclusion
+
+The optimized Random Forest achieved an independent test MAE of **2.532 Å**, RMSE of **3.661 Å**, and R² of **0.644**.
+
+These results demonstrate substantial improvement over the initial Linear Regression model.
+
+However, residual analysis revealed systematic prediction biases, particularly for high-RMSD observations.
+
+The model therefore provides a useful exploratory tool for estimating protein structural deviation, while its predictions should not be treated as definitive assessments of protein structure quality.
+
+### 10. Model Persistence and Deployment Preparation
+
+Following hyperparameter optimization and independent test evaluation, the selected Random Forest model was saved to disk to enable reuse without repeating the computationally expensive training and optimization procedures.
+
+Model persistence is an essential step in transitioning from experimental machine-learning development to an interactive application.
+
+The saved model was subsequently reloaded and verified to ensure that its predictions remained consistent.
+
+#### Saving the Optimized Model
+
+The final fitted model was retrieved from the RandomizedSearchCV results:
+
+```python
+best_rf_model = rf_search.best_estimator_
+```
+
+The model was serialized using the `joblib` library, which supports persistence of scikit-learn estimators.
+
+```python
+import joblib
+from pathlib import Path
+
+best_rf_model = rf_search.best_estimator_
+
+model_dir = Path("outputs/models")
+model_dir.mkdir(parents=True, exist_ok=True)
+
+model_path = model_dir / "optimized_random_forest.joblib"
+
+joblib.dump(best_rf_model, model_path)
+
+print(f"Model saved to: {model_path}")
+print(f"File size: {model_path.stat().st_size / (1024**2):.2f} MB")
+```
+
+The executed notebook reported:
+
+| Property | Result |
+|---|---|
+| Model type | RandomForestRegressor |
+| Serialization library | joblib |
+| Saved file | `outputs/models/optimized_random_forest.joblib` |
+| Recorded file size | 152.48 MB |
+| Number of input features | 9 |
+
+The file size refers to the model saved during the recorded notebook execution. A compressed deployment artifact may have a different size.
+
+#### Model Persistence Verification
+
+Saving a model does not automatically guarantee that it can be restored and used successfully.
+
+Therefore, the serialized model was reloaded and its predictions were compared with those generated by the original fitted estimator.
+
+```python
+loaded_model = joblib.load("outputs/models/optimized_random_forest.joblib")
+
+loaded_predictions = loaded_model.predict(X_test)
+
+predictions_match = np.allclose(y_test_pred, loaded_predictions)
+
+print(f"Predictions match: {predictions_match}")
+print(f"Loaded model type: {type(loaded_model).__name__}")
+print(f"Number of input features: {loaded_model.n_features_in_}")
+```
+
+The notebook produced the following output:
+
+```text
+Predictions match: True
+Loaded model type: RandomForestRegressor
+Number of input features: 9
+```
+
+The verification confirmed that the restored model generated predictions numerically consistent with the original model, within the tolerance used by NumPy's `allclose()` function.
+
+This provides evidence that the serialization and reloading process preserved the fitted estimator's predictive behavior.
+
+#### Preparing the Model for Streamlit
+
+The saved model was prepared for integration into the ProteinStruct-ML Streamlit dashboard.
+
+The application loads the serialized estimator and accepts nine numerical input values corresponding to F1–F9.
+
+The model then generates an estimated RMSD value in ångströms.
+
+The prediction workflow is:
+
+1. The user enters numerical values for F1–F9.
+2. The application organizes the values into the expected feature structure.
+3. The saved Random Forest model generates a prediction.
+4. The predicted RMSD is displayed to the user.
+
+It is important that the feature names, feature order, and input structure remain consistent with those used during training.
+
+The deployed application should also use compatible versions of the libraries required to load the model.
+
+#### Reproducibility and Security Considerations
+
+Model serialization enables efficient reuse of a fitted estimator but introduces several practical considerations.
+
+- **Library compatibility:** Serialized scikit-learn models may not load correctly across incompatible library versions.
+- **Input consistency:** The model expects the same nine numerical descriptors used during training.
+- **Model provenance:** The saved artifact should correspond to the estimator selected and evaluated in the modeling notebook.
+- **Serialization security:** `joblib.load()` should only be used with trusted model files because loading an untrusted serialized object can execute malicious code.
+- **Scientific limitations:** Successful model loading does not establish biological validity or guarantee accurate predictions for inputs outside the training distribution.
+
+#### Scientific Interpretation
+
+The deployed model predicts RMSD from nine numerical descriptors associated with protein structural models.
+
+It does not reconstruct protein structures, predict atomic coordinates, or independently validate experimental protein conformations.
+
+The predictions should therefore be interpreted as exploratory estimates of structural deviation.
+
+The final test evaluation demonstrated useful predictive performance, but also identified systematic overestimation of low RMSD values and underestimation of high RMSD values.
+
+These limitations remain relevant when interpreting predictions generated through the application.
+
+#### Conclusion
+
+The optimized Random Forest model was successfully serialized, reloaded, and verified.
+
+The verification confirmed that the restored estimator accepted nine input features and reproduced the original predictions within numerical tolerance.
+
+This completed the machine-learning development workflow and provided the model artifact required for integration into the Streamlit dashboard.
+
+The following project stage focuses on the design, functionality, and deployment of the interactive ProteinStruct-ML application.
 
 Welcome,
 
