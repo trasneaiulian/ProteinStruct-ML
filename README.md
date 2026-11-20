@@ -106,10 +106,250 @@ The specific objectives are to:
 
 5. **Optimize model performance:** Apply cross-validation and hyperparameter optimization to identify suitable model configurations.
 
+## Research Questions
 
+The project addresses five research questions:
 
+1. **What are the main statistical characteristics of the CASP dataset?**
 
+   How are RMSD and the nine numerical descriptors distributed? Are the variables approximately normally distributed, skewed, or affected by extreme observations?
 
+2. **Which numerical descriptors are associated with RMSD?**
+
+   Do the input features exhibit meaningful statistical relationships with structural deviation, and what do correlation analysis and hypothesis testing reveal about these associations?
+
+3. **Can machine-learning algorithms predict RMSD more accurately than a simple baseline?**
+
+   How do Linear Regression, Random Forest Regression, and HistGradientBoosting Regression perform compared with a baseline model that predicts a constant value?
+
+4. **Does model optimization improve predictive performance?**
+
+   Can cross-validation and hyperparameter tuning improve the predictive accuracy of the selected regression models?
+
+5. **How reliably can the final model estimate RMSD for unseen observations?**
+
+   What do the test-set MAE, RMSE, R², and residual analysis reveal about the model's accuracy, limitations, and potential generalization?
+
+These questions provide the framework for interpreting the results of the ETL, EDA, and machine-learning notebooks.
+
+## Dataset
+
+The project uses the **CASP (Critical Assessment of protein Structure Prediction) protein tertiary structure dataset**.
+
+CASP is an international initiative designed to evaluate computational methods for predicting protein three-dimensional structures.
+
+The dataset contains numerical descriptors associated with computational protein models, together with a target variable representing their structural deviation.
+
+The aim is to investigate whether relationships between these numerical descriptors and RMSD can be learned by regression algorithms.
+
+### Dataset Structure
+
+The original dataset contains **45,730 observations and 10 variables**.
+
+| Variable | Description |
+|---|---|
+| `RMSD` | Root Mean Square Deviation, the continuous target variable |
+| `F1` | Numerical input descriptor 1 |
+| `F2` | Numerical input descriptor 2 |
+| `F3` | Numerical input descriptor 3 |
+| `F4` | Numerical input descriptor 4 |
+| `F5` | Numerical input descriptor 5 |
+| `F6` | Numerical input descriptor 6 |
+| `F7` | Numerical input descriptor 7 |
+| `F8` | Numerical input descriptor 8 |
+| `F9` | Numerical input descriptor 9 |
+
+The nine descriptors are supplied under generic feature names (F1–F9). Their precise physicochemical or structural interpretations are not established in the project notebooks, so no unsupported biological meaning is assigned to individual features.
+
+### Target Variable: RMSD
+
+RMSD is the variable the machine-learning models are trained to predict.
+
+It represents a numerical measure of structural deviation and is expressed in ångströms (Å).
+
+In general, lower RMSD values indicate greater similarity between the compared protein structures, whereas higher values indicate larger structural differences.
+
+### Initial Dataset Characteristics
+
+Initial inspection using Pandas revealed:
+
+- **45,730 observations**
+- **10 numerical variables**
+- **9 predictor variables and 1 target variable**
+- **No missing values**
+- **Nine `float64` columns and one `int64` column (F8)**
+
+The original RMSD values have the following descriptive statistics:
+
+| Statistic | RMSD |
+|---|---:|
+| Mean | 7.75 Å |
+| Median | 5.03 Å |
+| Standard deviation | 6.12 Å |
+| Minimum | 0.00 Å |
+| Maximum | 21.00 Å |
+
+The mean is higher than the median, suggesting a positively skewed RMSD distribution. This observation is investigated further during exploratory data analysis.
+
+The numerical predictors also have substantially different scales. For example, F3 contains values below 1, while F5 contains values in the millions.
+
+These differences are relevant when selecting preprocessing methods and machine-learning algorithms.
+
+### Dataset Size After Cleaning
+
+The data preparation process identified and removed 1,711 exact duplicate observations.
+
+The cleaned dataset therefore contains **44,019 observations and 10 variables**.
+
+The original dataset is stored in:
+
+`data/raw/CASP.csv`
+
+The cleaned dataset used for subsequent analysis is stored in:
+
+`data/processed/casp_cleaned.csv`
+
+Data Cleaning and Preparation
+
+Before exploratory data analysis and machine-learning model development, the original CASP dataset was inspected and prepared in the 01_ETL.ipynb notebook.
+
+The objective was to identify potential data-quality issues, investigate duplicate observations, and produce a validated dataset while preserving potentially meaningful scientific information.
+
+1. Data Loading and Initial Inspection
+
+The original dataset was loaded from data/raw/CASP.csv using Pandas.
+
+Initial inspection included:
+
+Displaying the first five observations using head().
+
+Checking dataset dimensions using shape.
+
+Examining data types and non-null counts using info().
+
+Calculating descriptive statistics using describe().
+
+The dataset contained 45,730 observations and 10 numerical columns, consisting of RMSD and nine predictor variables (F1–F9).
+
+All columns contained non-null values. Nine columns had the float64 data type, while F8 was stored as int64.
+
+Descriptive statistics revealed substantial differences in the scales of the predictors. Several variables also exhibited large differences between their median and maximum values, suggesting potentially extreme observations.
+
+These characteristics were investigated further during exploratory data analysis.
+
+2. Missing-Value Assessment
+
+Missing values were checked using isnull().sum().
+
+No missing values were detected in any of the ten variables.
+
+Consequently, no missing-value imputation or row removal was necessary.
+
+3. Investigation of Duplicate Observations
+
+The dataset was examined for exact duplicate observations using duplicated().
+
+The initial assessment identified:
+
+Measure
+
+Result
+
+Original observations
+
+45,730
+
+Exact duplicates
+
+1,711
+
+Percentage duplicated
+
+3.74%
+
+Rows belonging to duplicate groups
+
+3,162
+
+Duplicate groups were inspected using duplicated(keep=False) and value_counts().
+
+An additional investigation examined whether identical combinations of predictor values (F1–F9) were associated with different RMSD values.
+
+This analysis identified 38 predictor combinations associated with more than one RMSD value.
+
+These observations are not necessarily data-entry errors. They may reflect information not fully represented by the available numerical descriptors.
+
+It was therefore important to distinguish between exact duplicate observations and observations with identical predictors but different target values.
+
+4. Handling Duplicate Records
+
+Only exact duplicate rows across all ten columns were removed using drop_duplicates().
+
+This reduced the dataset from 45,730 to 44,019 observations.
+
+The 38 predictor combinations associated with different RMSD values were retained.
+
+Removing these observations would have required assuming that identical predictor values must correspond to identical RMSD values, which was not justified by the available information.
+
+The original dataset was preserved separately.
+
+No outlier removal, feature scaling, or additional transformations were performed during ETL.
+
+5. Exporting the Cleaned Dataset
+
+The cleaned dataset was exported to:
+
+data/processed/casp_cleaned.csv
+
+The original data remained available at:
+
+data/raw/CASP.csv
+
+Separating raw and processed data helps preserve reproducibility and allows the cleaning procedure to be reviewed independently.
+
+6. Data Validation
+
+After export, the cleaned CSV file was reloaded and checked.
+
+The validation process confirmed:
+
+Validation check
+
+Result
+
+Expected dimensions
+
+44,019 × 10
+
+Missing values
+
+0
+
+Exact duplicate observations
+
+0
+
+Expected column names
+
+Preserved
+
+Automated assertions
+
+All passed
+
+Automated assertions were used to verify dataset dimensions, missing-value counts, duplicate counts, and column consistency.
+
+The cleaned dataset was subsequently used for exploratory data analysis and machine-learning model development.
+
+Data Cleaning Conclusions
+
+The ETL process removed 1,711 redundant observations while retaining records that shared predictor values but differed in RMSD.
+
+The final dataset contained 44,019 observations and 10 numerical variables, with no missing values or exact duplicate records.
+
+The investigation also highlighted the importance of considering repeated predictor combinations during machine-learning evaluation.
+
+This finding motivated the use of group-aware data splitting and cross-validation in the modeling notebook to reduce the risk of information leakage between training and evaluation datasets.
 
 
 
