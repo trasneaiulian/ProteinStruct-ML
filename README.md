@@ -2142,6 +2142,338 @@ The verification confirmed that the restored estimator accepted nine input featu
 This completed the machine-learning development workflow and provided the model artifact required for integration into the Streamlit dashboard.
 
 The following project stage focuses on the design, functionality, and deployment of the interactive ProteinStruct-ML application.
+### 8.5 Application Screenshots
+
+The ProteinStruct-ML dashboard provides an interactive interface for exploring the CASP dataset, reviewing regression model performance, and generating RMSD predictions.
+
+The application is organized into four main pages.
+
+#### Project Overview
+
+![ProteinStruct-ML Project Overview](images/streamlit_overview.png)
+
+*Figure 1. Project Overview page introducing the biological context, project objectives, and machine-learning workflow.*
+
+#### Exploratory Data Analysis
+
+![ProteinStruct-ML Exploratory Data Analysis](images/streamlit_eda.png)
+
+*Figure 2. Exploratory Data Analysis page displaying visualizations of the CASP dataset and its numerical features.*
+
+#### Model Performance
+
+![ProteinStruct-ML Model Performance](images/streamlit_performance.png)
+
+*Figure 3. Model Performance page presenting regression evaluation results and the performance of the optimized Random Forest.*
+
+#### Interactive RMSD Prediction
+
+![ProteinStruct-ML RMSD Prediction](images/streamlit_prediction.png)
+
+*Figure 4. Interactive prediction interface allowing users to enter numerical descriptors F1–F9 and obtain an estimated RMSD value in ångströms (Å).*
+
+Together, these pages demonstrate the integration of data analysis, machine-learning evaluation, and model inference into an interactive scientific application.
+
+### 8.7 Running the Application Locally
+
+The ProteinStruct-ML dashboard can be run locally using Python and Streamlit.
+
+This allows users to explore the CASP dataset, review regression model performance, and generate RMSD predictions through an interactive interface.
+
+#### Prerequisites
+
+Before running the application, ensure that the following are available:
+
+- Python 3.10 or later, with compatible project dependencies.
+- Git for cloning the repository.
+- The cleaned CASP dataset.
+- The trained Random Forest model saved in Joblib format.
+
+#### Step 1 — Clone the Repository
+
+Clone the ProteinStruct-ML repository from GitHub:
+
+```bash
+git clone <repository-url>
+cd ProteinStruct-ML
+```
+
+Replace `<repository-url>` with the actual GitHub repository URL.
+
+Alternatively, download the repository as a ZIP file and extract it.
+
+#### Step 2 — Create a Virtual Environment
+
+Creating a virtual environment helps isolate the project dependencies from other Python installations.
+
+```bash
+python -m venv .venv
+```
+
+Activate the environment.
+
+On Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+On macOS or Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+#### Step 3 — Install Dependencies
+
+Install the required Python packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+The application uses Streamlit, Pandas, Matplotlib, Joblib, and Scikit-learn.
+
+The dependency versions should be compatible with those used to train and serialize the model.
+
+#### Step 4 — Verify Required Files
+
+Before launching the dashboard, confirm that the following files are available:
+
+```text
+data/processed/casp_cleaned.csv
+outputs/models/optimized_random_forest.joblib
+```
+
+The cleaned dataset is used for data exploration, while the serialized Random Forest model is required for RMSD prediction.
+
+If either file is missing, the corresponding application functionality may not work.
+
+#### Step 5 — Launch Streamlit
+
+From the project root directory, run:
+
+```bash
+streamlit run app.py
+```
+
+This command assumes that the Streamlit application entry point is named `app.py` and is located in the repository root.
+
+Streamlit will start a local web server, typically accessible at:
+
+```text
+http://localhost:8501
+```
+
+The dashboard can then be explored through the browser.
+
+#### Step 6 — Explore the Dashboard
+
+The sidebar provides access to four application pages:
+
+1. **Project Overview:** Introduction to the scientific problem and project objectives.
+2. **Exploratory Data Analysis:** Visualization and exploration of the CASP dataset.
+3. **Model Performance:** Evaluation of the trained regression models.
+4. **RMSD Prediction:** Interactive prediction using the optimized Random Forest model.
+
+For RMSD prediction, enter numerical values for F1–F9 and generate a predicted RMSD value in ångströms (Å).
+
+#### Important Notes
+
+The model requires nine numerical descriptors corresponding to the features used during training.
+
+Input values should be consistent with the feature definitions, ordering, and distributions of the training dataset.
+
+Predictions are intended for exploratory and educational use and should not be interpreted as experimentally validated measurements of protein structural quality.
+
+### 8.8 Heroku Deployment and Reproducibility
+
+The ProteinStruct-ML application has been deployed on **Heroku**, a cloud application platform that enables Python-based applications to run in an online environment.
+
+The deployment transforms the machine-learning workflow developed in Jupyter notebooks into an accessible, interactive web application.
+
+Users can explore the CASP dataset, examine regression model performance, and generate RMSD predictions directly through their web browsers without installing Python or running the project locally.
+
+#### Live Application
+
+**Application:** ProteinStruct-ML
+
+**Deployment Platform:** Heroku
+
+**Web Framework:** Streamlit
+
+**Application Entry Point:** `app.py`
+
+**Live Dashboard:** [Launch ProteinStruct-ML](https://proteinstruct-ml-casp-38bf24bbb072.herokuapp.com/)
+
+The deployed application includes four interactive sections:
+
+1. **Project Overview:** Introduces the scientific background, project objectives, and machine-learning workflow.
+2. **Exploratory Data Analysis:** Presents visualizations and statistical characteristics of the CASP dataset.
+3. **Model Performance:** Summarizes the regression models and the performance of the optimized Random Forest.
+4. **RMSD Prediction:** Allows users to enter nine numerical descriptors (F1–F9) and generate predicted RMSD values in ångströms (Å).
+
+#### Deployment Architecture
+
+The application follows an end-to-end machine-learning workflow that separates data processing, model development, and deployment.
+
+```text
+                  CASP Dataset
+                       |
+                       v
+             Data Cleaning (ETL)
+                       |
+                       v
+         Exploratory Data Analysis
+                       |
+                       v
+           Regression Model Training
+                       |
+                       v
+          Hyperparameter Optimization
+                       |
+                       v
+          Optimized Random Forest
+                       |
+                       v
+          Model Serialization (Joblib)
+                       |
+                       v
+             Streamlit Application
+                   (app.py)
+                       |
+                       v
+               Heroku Deployment
+                       |
+                       v
+             Interactive Dashboard
+                       |
+                       v
+              RMSD Predictions
+```
+
+The machine-learning model is trained and optimized separately from the web application.
+
+During application execution, Streamlit loads the previously serialized Random Forest model rather than retraining it.
+
+This approach reduces computational overhead and allows the application to generate predictions using the same fitted estimator evaluated during model development.
+
+#### Model Integration
+
+The optimized Random Forest model was saved using Joblib:
+
+```text
+outputs/models/optimized_random_forest.joblib
+```
+
+The Streamlit application loads the saved estimator using:
+
+```python
+import joblib
+import streamlit as st
+
+
+@st.cache_resource
+def load_model():
+    return joblib.load("outputs/models/optimized_random_forest.joblib")
+```
+
+The `st.cache_resource` decorator allows Streamlit to reuse the loaded model across application reruns, avoiding repeated loading of the serialized estimator.
+
+The prediction interface accepts nine numerical input values corresponding to the F1–F9 descriptors used during model training.
+
+These inputs are passed to the trained Random Forest estimator, which returns an estimated RMSD value.
+
+The application displays the prediction in ångströms (Å).
+
+#### Application Dependencies
+
+The deployed dashboard relies on the following Python libraries:
+
+| Library | Role |
+|---|---|
+| Streamlit | Interactive dashboard and user interface |
+| Pandas | Data loading and manipulation |
+| NumPy | Numerical operations |
+| Matplotlib | Data visualization |
+| Scikit-learn | Regression model and prediction |
+| Joblib | Model serialization and loading |
+
+The application also requires access to the cleaned dataset:
+
+```text
+data/processed/casp_cleaned.csv
+```
+
+The Python dependencies are managed through the project's `requirements.txt` file.
+
+Compatible dependency versions are important because the application loads a previously trained scikit-learn estimator.
+
+#### Reproducibility and Project Organization
+
+The GitHub repository documents the complete workflow from raw data preparation to interactive model deployment.
+
+The project is organized into distinct stages:
+
+**1. Data Preparation**
+
+The ETL notebook documents data loading, cleaning, duplicate removal, and preparation of the CASP dataset.
+
+**2. Exploratory Data Analysis**
+
+The EDA notebook investigates RMSD distributions, numerical feature characteristics, correlations, and statistical relationships.
+
+**3. Machine-Learning Development**
+
+The modeling notebook documents regression algorithms, group-aware cross-validation, hyperparameter optimization, independent test evaluation, and model serialization.
+
+**4. Interactive Application**
+
+The Streamlit application provides an interface for exploring project results and generating predictions using the saved Random Forest model.
+
+**5. Cloud Deployment**
+
+Heroku hosts the Streamlit application and makes its functionality accessible through a public web address.
+
+This organization separates scientific analysis from application inference and makes the workflow easier to understand, reproduce, and maintain.
+
+#### Model Performance in the Deployed Application
+
+The application uses the optimized Random Forest model evaluated on the independent test dataset.
+
+| Evaluation Metric | Test Result |
+|---|---:|
+| Mean Absolute Error (MAE) | 2.532 Å |
+| Root Mean Squared Error (RMSE) | 3.661 Å |
+| Coefficient of Determination (R²) | 0.644 |
+
+These results describe the model's performance on the held-out CASP test dataset.
+
+They should not be interpreted as a guarantee of equivalent performance for arbitrary user-provided inputs.
+
+#### Scientific and Deployment Limitations
+
+Although the application provides an accessible interface for machine-learning-based RMSD estimation, several limitations remain.
+
+- **Feature interpretability:** The dataset contains nine numerical descriptors (F1–F9), but their precise scientific definitions are not provided.
+- **Prediction scope:** The model estimates RMSD from numerical descriptors; it does not reconstruct protein structures or calculate RMSD directly from atomic coordinates.
+- **Prediction bias:** Model evaluation identified systematic overestimation of low RMSD values and underestimation of high RMSD values.
+- **Generalization:** Group-aware validation reduces leakage between identical feature combinations but does not establish generalization to entirely unseen protein families.
+- **Input validity:** The application does not independently establish whether user-provided feature values represent biologically plausible observations or fall within the training distribution.
+- **Deployment compatibility:** Changes to Python or machine-learning library versions may require compatibility checks or model reserialization.
+- **Scientific validation:** Cloud deployment does not replace experimental validation or independent benchmarking on additional protein structure datasets.
+
+The application is therefore intended as an educational and exploratory demonstration of machine learning in structural bioinformatics rather than a production-validated protein structure assessment system.
+
+#### Conclusion
+
+Deploying ProteinStruct-ML on Heroku completes the transition from data analysis and machine-learning experimentation to an interactive scientific application.
+
+The project demonstrates an end-to-end workflow involving data preparation, exploratory analysis, regression modeling, hyperparameter optimization, independent evaluation, model persistence, and cloud deployment.
+
+The live application makes these results accessible through a browser and provides a practical demonstration of integrating machine-learning models into scientific software.
+
+**Live Application:** [ProteinStruct-ML — Interactive Dashboard](https://proteinstruct-ml-casp-38bf24bbb072.herokuapp.com/)
 
 Welcome,
 
