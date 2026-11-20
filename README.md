@@ -820,6 +820,344 @@ All nine numerical predictors were retained for the initial modeling experiments
 
 The next stage focuses on establishing baseline performance, training multiple regression algorithms, optimizing hyperparameters, and evaluating predictive accuracy using appropriate validation strategies.
 
+## Machine Learning Modeling
+
+Machine-learning development was performed in `03_Modeling.ipynb` using the cleaned CASP dataset.
+
+The objective was to develop and evaluate regression models capable of predicting protein structural deviation (RMSD) from nine numerical descriptors (F1–F9).
+
+The modeling workflow included baseline evaluation, linear and nonlinear regression, group-aware cross-validation, hyperparameter optimization, independent test evaluation, and model serialization.
+
+### 1. Problem Definition and Data Preparation
+
+#### Machine Learning Task
+
+The project addresses a **supervised regression problem**, in which the objective is to predict a continuous numerical outcome.
+
+The target variable is Root Mean Square Deviation (RMSD), expressed in ångströms (Å).
+
+RMSD measures structural differences between a protein model and a reference structure. Lower values generally indicate closer structural agreement, while higher values indicate greater deviation.
+
+The input variables are nine numerical descriptors, F1–F9, provided in the CASP dataset.
+
+The model does not predict three-dimensional protein coordinates or generate new protein structures. Instead, it estimates RMSD from existing numerical descriptors.
+
+#### Feature and Target Selection
+
+The cleaned dataset was loaded from:
+
+`data/processed/casp_cleaned.csv`
+
+The feature matrix and target vector were defined using Pandas:
+
+```python
+feature_columns = [f"F{i}" for i in range(1, 10)]
+
+X = df[feature_columns].copy()
+y = df["RMSD"].copy()
+```
+
+The dataset contains:
+
+| Component | Description |
+|---|---|
+| Total observations | 44,019 |
+| Input features (X) | F1–F9 |
+| Number of predictors | 9 |
+| Target variable (y) | RMSD |
+| Prediction task | Supervised regression |
+
+All nine predictors were retained following the exploratory analysis.
+
+#### Group-Aware Training and Test Split
+
+To evaluate predictive performance on unseen observations, the dataset was divided into approximately 80% training data and 20% testing data.
+
+Instead of using a conventional random split, the project implemented `GroupShuffleSplit` from scikit-learn.
+
+This decision was motivated by the ETL findings, which identified some records with identical combinations of predictor values but different RMSD values.
+
+If identical predictor combinations appeared in both training and testing datasets, the evaluation could benefit from information already encountered during training.
+
+To reduce this risk, identical combinations of F1–F9 values were assigned the same group identifier.
+
+```python
+from sklearn.model_selection import GroupShuffleSplit
+
+groups = pd.util.hash_pandas_object(X, index=False)
+
+splitter = GroupShuffleSplit(n_splits=1, test_size=0.20, random_state=42)
+
+train_idx, test_idx = next(splitter.split(X, y, groups=groups))
+```
+
+The resulting indices were used to create the training and testing subsets.
+
+**The test dataset was reserved for final model evaluation and was not used for hyperparameter optimization.**
+
+#### Verification of Group Separation
+
+An explicit validation check was implemented to verify that identical predictor combinations did not cross the training/test boundary.
+
+```python
+train_groups = set(groups.iloc[train_idx])
+test_groups = set(groups.iloc[test_idx])
+
+assert train_groups.isdisjoint(test_groups)
+```
+
+The notebook reported:
+
+`Group leakage check: PASSED`
+
+This confirmed that no group identifier appeared in both subsets.
+
+#### Why Group-Aware Splitting Matters
+
+A conventional random split assumes that observations can be assigned independently to training and testing datasets.
+
+However, this assumption can be problematic when multiple observations share identical predictor combinations.
+
+Group-aware splitting reduces the risk of evaluating a model on predictor combinations already present in the training dataset.
+
+Nevertheless, an important limitation remains: the CASP dataset used in this project does not contain protein identifiers or protein-family annotations.
+
+Therefore, the grouping strategy does not guarantee separation between biologically related proteins.
+
+The resulting evaluation measures generalization to held-out predictor combinations rather than demonstrating generalization to entirely unseen protein families.
+
+#### Reproducibility
+
+The split was configured with `random_state=42` to ensure reproducibility.
+
+All subsequent model development and cross-validation procedures used the training dataset, while the held-out test dataset was preserved for final evaluation.
+
+### 2. Baseline Model — DummyRegressor
+
+Before developing predictive machine-learning models, a baseline was established using `DummyRegressor` from scikit-learn.
+
+A baseline provides a reference level of predictive performance against which more sophisticated regression algorithms can be compared.
+
+The purpose was to determine whether models trained on the nine numerical descriptors (F1–F9) could outperform a simple prediction strategy that does not learn relationships between the input features and RMSD.
+
+#### Baseline Strategy
+
+The `DummyRegressor` was configured using the `mean` strategy.
+
+This approach calculates the average RMSD in the training dataset and uses that value as the prediction for every observation, regardless of its feature values.
+
+The model therefore does not learn relationships between F1–F9 and RMSD.
+
+It provides a simple benchmark representing constant-mean prediction.
+
+#### Model Implementation
+
+The baseline model was implemented using scikit-learn:
+
+```python
+from sklearn.dummy import DummyRegressor
+
+dummy_model = DummyRegressor(strategy="mean")
+
+dummy_model.fit(X_train, y_train)
+
+y_train_pred_dummy = dummy_model.predict(X_train)
+```
+
+The model was trained and evaluated using the training dataset.
+
+#### Evaluation Metrics
+
+Three complementary regression metrics were used to evaluate predictive performance.
+
+**Mean Absolute Error (MAE)**
+
+MAE measures the average absolute difference between observed and predicted RMSD values.
+
+\[
+MAE = \frac{1}{n}\sum_{i=1}^{n}|y_i-\hat{y}_i|
+\]
+
+MAE is expressed in ångströms (Å), making it directly interpretable in the context of protein structural deviation.
+
+Lower values indicate better predictive accuracy.
+
+**Root Mean Squared Error (RMSE)**
+
+RMSE measures the square root of the average squared prediction error.
+
+\[
+RMSE = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(y_i-\hat{y}_i)^2}
+\]
+
+Because errors are squared before averaging, RMSE penalizes large prediction errors more strongly than MAE.
+
+This is useful for identifying models that occasionally make particularly inaccurate RMSD predictions.
+
+RMSE is also expressed in ångströms.
+
+**Coefficient of Determination (R²)**
+
+R² measures how well the model explains variation in the target variable relative to a constant-mean prediction.
+
+\[
+R^2 = 1-\frac{\sum_{i=1}^{n}(y_i-\hat{y}_i)^2}{\sum_{i=1}^{n}(y_i-\bar{y})^2}
+\]
+
+An R² value of 1 indicates perfect predictions.
+
+An R² value of 0 indicates performance equivalent to predicting the mean of the evaluated target values.
+
+Negative values indicate performance worse than this reference.
+
+#### Baseline Training Results
+
+The DummyRegressor produced the following results on the training dataset:
+
+| Metric | DummyRegressor |
+|---|---:|
+| Mean predicted RMSD | 7.766 Å |
+| MAE | 5.511 Å |
+| RMSE | 6.137 Å |
+| R² | 0.000 |
+
+The model predicted a constant RMSD value of approximately 7.766 Å for every training observation.
+
+The MAE of 5.511 Å indicates that predictions differed from the observed RMSD values by approximately 5.5 Å on average.
+
+The RMSE of 6.137 Å reflects the substantial variability of RMSD values around the training-set mean.
+
+The R² value of zero is expected because the model predicts the training-set mean and does not explain additional variation in RMSD.
+
+#### Interpretation
+
+The baseline demonstrates the limitations of predicting protein structural deviation without considering the numerical descriptors.
+
+Although the model captures the overall average RMSD, it cannot distinguish between observations with relatively low and high structural deviations.
+
+Consequently, it provides no observation-specific predictive information.
+
+To demonstrate meaningful predictive performance, subsequent regression models should achieve lower prediction errors and higher R² values than this baseline.
+
+However, training-set improvements alone are insufficient to establish generalization. Model comparisons should also use cross-validation and, ultimately, an independent held-out test dataset.
+
+#### Conclusion
+
+The DummyRegressor established a simple reference point for the machine-learning workflow.
+
+Its training performance was:
+
+- **MAE:** 5.511 Å
+- **RMSE:** 6.137 Å
+- **R²:** 0.000
+
+These results provide a benchmark for evaluating whether Linear Regression and nonlinear ensemble models can learn useful relationships between F1–F9 and RMSD.
+
+### 3. Linear Regression
+
+Linear Regression was implemented as the first machine-learning model capable of learning relationships between the nine numerical descriptors (F1–F9) and the target variable, RMSD.
+
+Unlike DummyRegressor, which predicts a constant value, Linear Regression estimates coefficients describing how the predictors are linearly associated with RMSD.
+
+The objective was to establish whether a linear combination of the numerical descriptors could improve predictive accuracy compared with the baseline.
+
+#### Model Principle
+
+Multiple Linear Regression estimates the target variable using the following equation:
+
+\[
+\widehat{RMSD} = \beta_0 + \beta_1F_1 + \beta_2F_2 + \cdots + \beta_9F_9
+\]
+
+Where:
+
+- \(\widehat{RMSD}\) is the predicted structural deviation.
+- \(\beta_0\) is the intercept.
+- \(\beta_1\) to \(\beta_9\) are the regression coefficients.
+- \(F_1\) to \(F_9\) are the numerical input descriptors.
+
+The model estimates its coefficients by minimizing the sum of squared prediction errors.
+
+#### Preprocessing and Pipeline Implementation
+
+The model was implemented using a scikit-learn `Pipeline` consisting of two steps:
+
+1. **StandardScaler:** Standardizes the numerical predictors by subtracting the training mean and dividing by the training standard deviation.
+2. **LinearRegression:** Fits a linear relationship between the standardized predictors and RMSD.
+
+Standardization transforms a feature according to:
+
+\[
+z = \frac{x-\mu}{\sigma}
+\]
+
+Where \(\mu\) and \(\sigma\) are estimated from the training data.
+
+Although ordinary least-squares Linear Regression does not inherently require standardized predictors, scaling helps place the variables on comparable numerical scales.
+
+It can also improve numerical conditioning when features have substantially different magnitudes.
+
+The pipeline was implemented as follows:
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+
+linear_pipeline = Pipeline(
+    [("scaler", StandardScaler()), ("model", LinearRegression())]
+)
+
+linear_pipeline.fit(X_train, y_train)
+
+y_train_pred_linear = linear_pipeline.predict(X_train)
+```
+
+Using a pipeline ensures that preprocessing is fitted on the training data rather than on the entire dataset.
+
+During subsequent cross-validation, the scaler is fitted separately within each training fold, helping prevent preprocessing-related data leakage.
+
+#### Training Performance
+
+The Linear Regression model was initially evaluated on the training dataset using Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and the coefficient of determination (R²).
+
+| Metric | DummyRegressor | Linear Regression |
+|---|---:|---:|
+| MAE | 5.511 Å | 4.353 Å |
+| RMSE | 6.137 Å | 5.201 Å |
+| R² | 0.000 | 0.282 |
+
+Linear Regression improved performance compared with the constant-mean baseline.
+
+The MAE decreased from 5.511 Å to 4.353 Å, representing an improvement of approximately **21.0%**.
+
+The RMSE decreased from 6.137 Å to 5.201 Å, representing an improvement of approximately **15.3%**.
+
+The R² value increased from 0.000 to 0.282.
+
+This indicates that the linear model explained approximately 28.2% of the observed variance in RMSD within the training dataset.
+
+#### Interpretation
+
+The improvement over DummyRegressor demonstrates that the numerical descriptors contain useful predictive information.
+
+However, approximately 71.8% of the training-set variance remained unexplained by the fitted linear model.
+
+The exploratory analysis had previously identified substantial multicollinearity among several descriptors, as well as possible nonlinear relationships with RMSD.
+
+Multicollinearity can make individual regression coefficients difficult to interpret reliably, even when the model provides useful predictions.
+
+Furthermore, Linear Regression cannot directly capture nonlinear effects or feature interactions unless these relationships are explicitly represented through additional transformed features.
+
+These limitations motivate evaluating more flexible regression algorithms.
+
+#### Conclusion
+
+Linear Regression substantially outperformed the DummyRegressor baseline, demonstrating that the input descriptors provide meaningful predictive information.
+
+Nevertheless, its relatively modest R² indicates that a simple linear combination of F1–F9 cannot explain most of the variation in RMSD.
+
+The next stage evaluates model generalization using group-aware cross-validation before comparing Linear Regression with nonlinear ensemble methods.
 
 
 
