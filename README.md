@@ -2156,7 +2156,7 @@ The application is organized into four main pages.
 
 #### Exploratory Data Analysis
 
-![ProteinStruct-ML Exploratory Data Analysis](images/streamlit_eda.png)
+![ProteinStruct-ML Exploratory Data Analysis](images/streamlit_EDA.png)
 
 *Figure 2. Exploratory Data Analysis page displaying visualizations of the CASP dataset and its numerical features.*
 
@@ -2409,6 +2409,29 @@ The Python dependencies are managed through the project's `requirements.txt` fil
 
 Compatible dependency versions are important because the application loads a previously trained scikit-learn estimator.
 
+#### Heroku Deployment Configuration
+
+The project uses the Code Institute deployment structure for hosting a Streamlit application on Heroku.
+
+The deployment configuration includes several supporting files:
+
+| File | Purpose |
+|---|---|
+| `app.py` | Main entry point for the Streamlit dashboard |
+| `requirements.txt` | Defines the Python dependencies required by the application |
+| `.python-version` | Specifies the Python runtime version |
+| `Procfile` | Defines the command used by Heroku to launch the application |
+| `setup.sh` | Provides supporting configuration for the Streamlit environment |
+| `.slugignore` | Excludes unnecessary files from the Heroku deployment package |
+
+The application is hosted on Heroku and can be accessed through its public URL.
+
+Heroku supports deployment from a connected GitHub repository, allowing application updates to be deployed from a selected branch.
+
+The deployment configuration separates the files required for running the application from those used for exploratory analysis and model development.
+
+**Live Application:** [ProteinStruct-ML on Heroku](https://proteinstruct-ml-casp-38bf24bbb072.herokuapp.com/)
+
 #### Reproducibility and Project Organization
 
 The GitHub repository documents the complete workflow from raw data preparation to interactive model deployment.
@@ -2475,74 +2498,265 @@ The live application makes these results accessible through a browser and provid
 
 **Live Application:** [ProteinStruct-ML — Interactive Dashboard](https://proteinstruct-ml-casp-38bf24bbb072.herokuapp.com/)
 
-Welcome,
+## 9. Conclusions, Scientific Limitations, and Future Improvements
 
-This is the Code Institute student template for the three Data Analytics capstone projects. We have preinstalled all of the tools you need to get started. It's perfectly okay to use this template as the basis for your project submissions. Click the `Use this template` button above to get started.
+### 9.1 Project Summary
 
-You can safely delete the Template Instructions section of this README.md file and modify the remaining paragraphs for your own project. Please do read the Template Instructions at least once, though! It contains some important information about the IDE and the extensions we use.
+ProteinStruct-ML demonstrates an end-to-end machine-learning workflow for predicting protein structural deviation, expressed as Root Mean Square Deviation (RMSD), from nine numerical descriptors in the CASP dataset.
 
-If you are working on the first capstone project, you can also delete `.python-version`, `.slugignore`, `Procfile` and `setup.sh` as they are only required for later dashboard projects. 
+The project integrates data preprocessing, exploratory data analysis, statistical hypothesis testing, regression modeling, hyperparameter optimization, independent model evaluation, and deployment through an interactive Streamlit application hosted on Heroku.
 
-## How to use this repo
+The original dataset contained 45,730 observations. After removing 1,711 duplicate records, 44,019 observations were retained for analysis and modeling.
 
-1. Use this template to create your GitHub project repo. Click the **Use this template** button, then click **Create a new repository**.
+Three regression algorithms were investigated:
 
-1. Copy the URL of your repository to your clipboard.
+- Linear Regression
+- Random Forest Regression
+- HistGradientBoosting Regression
 
-1. In VS Code, select **File** -> **Open Folder**.
+Random Forest achieved the strongest cross-validation performance and was selected for hyperparameter optimization.
 
-1. Select your `vscode-projects` folder, then click the **Select Folder** button on Windows, or the **Open** button on Mac.
+The optimized model was subsequently evaluated on an independent held-out test dataset containing 8,809 observations.
 
-1. From the top menu in VS Code, select **Terminal** > **New Terminal** to open a new terminal.
+### 9.2 Main Findings
 
-1. In the terminal, type `git clone` followed by the URL of your GitHub repository. Then hit **Enter**. This command will download all the files in your GitHub repository into your vscode-projects folder.
+#### Nonlinear Models Outperformed Linear Regression
 
-1. In VS Code, select **File** > **Open Folder** again.
+Five-fold group-aware cross-validation demonstrated that nonlinear ensemble methods achieved better predictive performance than Linear Regression.
 
-1. This time, navigate to and select the folder for the project you just downloaded. Then, click **Select Folder**.
+| Regression Model | CV MAE (Å) | CV RMSE (Å) | CV R² |
+|---|---:|---:|---:|
+| Linear Regression | 4.355 | 5.203 | 0.281 |
+| HistGradientBoosting | 3.415 | 4.393 | 0.488 |
+| **Random Forest** | **2.677** | **3.771** | **0.622** |
 
-1. A virtual environment is necessary when working with Python projects to ensure each project's dependencies are kept separate. You need to create your virtual environment, also called a venv, and then activate it whenever you return to your workspace.
-Click the gear icon in the lower left-hand corner of the screen to open the Manage menu and select **Command Palette** to open the VS Code command palette.
+Random Forest reduced cross-validation MAE by approximately 38.5% compared with Linear Regression and 21.6% compared with HistGradientBoosting.
 
-1. In the command palette, type: *create environment* and select **Python: Create Environment…**
+These results suggest that nonlinear relationships and interactions between the numerical descriptors contribute to RMSD prediction.
 
-1. Choose **Venv** from the dropdown list.
+#### Hyperparameter Optimization Improved Predictive Performance
 
-1. Choose the Python version you installed earlier. Currently, we recommend Python 3.12.8
+RandomizedSearchCV and GridSearchCV were used to investigate Random Forest configurations.
 
-1. **DO NOT** click the box next to `requirements.txt`; you need to complete additional steps before installing your dependencies. Click **OK**.
+The selected model contained 150 trees, a maximum depth of 20, a minimum of two samples per leaf, and `max_features=1.0`.
 
-1. You will see a `.venv` folder appear in the file explorer pane, indicating that the virtual environment has been created.
+Hyperparameter optimization reduced cross-validation MAE from approximately 2.677 Å to 2.566 Å, representing an improvement of approximately 4.1%.
 
-1. **Important**: Note that the `.venv` folder is in the `.gitignore` file so that Git won't track it.
+#### Independent Test Evaluation Demonstrated Useful Predictive Performance
 
-1. Return to the terminal by clicking on the TERMINAL tab, or click on the **Terminal** menu and choose **New Terminal** if no terminal is currently open.
+The optimized Random Forest achieved the following results on the held-out test dataset:
 
-1. In the terminal, use the command below to install your dependencies. This may take several minutes.
+| Evaluation Metric | Result |
+|---|---:|
+| Mean Absolute Error | **2.532 Å** |
+| Root Mean Squared Error | **3.661 Å** |
+| Coefficient of Determination | **0.644** |
 
- ```console
- pip3 install -r requirements.txt
- ```
+The model explained approximately 64.4% of the observed RMSD variance in the test dataset.
 
-1. Open the `jupyter_notebooks` directory, and click on the notebook you want to open.
+The relatively small difference between cross-validation and test MAE suggests reasonably consistent performance under the evaluation strategy used.
 
-1. Click the **Kernel** button, then choose **Python Environments**.
+However, these aggregate metrics do not fully describe the model's behavior across different RMSD ranges.
 
-Note that the kernel says `Python 3.12.8` as it inherits from the venv, so it will be Python-3.12.8 if that is what is installed on your PC. To confirm this, you can use the command below in a notebook code cell.
+#### Prediction Errors Were Dependent on Structural Deviation
 
-```console
-! python --version
-```
+Residual analysis revealed systematic differences between observed and predicted RMSD values.
 
-## Deployment Reminders
+| RMSD Category | MAE (Å) | Mean Residual (Å) |
+|---|---:|---:|
+| Low (<5 Å) | 1.795 | −1.711 |
+| Intermediate (5–10 Å) | 2.404 | −1.520 |
+| High (≥10 Å) | 3.527 | +3.138 |
 
-* The `.python-version`, `.slugignore`, `Procfile` and `setup.sh` files are necessary only if you are deploying a Streamlit app to Heroku as part of your submission for units 2 and 3. 
-* Set the `.python-version` Python version to a [Heroku-22](https://devcenter.heroku.com/articles/python-support#supported-runtimes) stack, currently supported version that most closely matches what you used in this project.
-* The project can be deployed to Heroku using the following steps.
+The model tended to overestimate RMSD for observations with low structural deviation and underestimate RMSD for observations with high structural deviation.
 
-1. Log in to Heroku and create an App
-2. At the **Deploy** tab, select **GitHub** as the deployment method.
-3. Select your repository name and click **Search**. Once it is found, click **Connect**.
-4. Select the branch you want to deploy, then click **Deploy Branch**.
-5. The deployment process should happen smoothly if all deployment files are fully functional. Click the button **Open App** at the top of the page to access your App.
-6. If the slug size is too large, then add large files not required for the app to the `.slugignore` file.
+This behavior indicates that predictions were partially compressed toward intermediate RMSD values.
+
+The higher prediction error in the high-RMSD category is particularly relevant because substantial structural deviations may be underestimated.
+
+### 9.3 Scientific Limitations
+
+Despite its predictive performance, several limitations must be considered when interpreting the results.
+
+**1. Limited Feature Interpretability**
+
+The CASP dataset provides nine numerical descriptors, labeled F1–F9, without their precise scientific definitions in the project data.
+
+Although statistical relationships between these features and RMSD can be investigated, their underlying biological significance cannot be established from the available information alone.
+
+Consequently, the model should not be used to make mechanistic claims about specific protein structural properties.
+
+**2. Dataset-Specific Generalization**
+
+Group-aware data splitting and cross-validation were used to reduce leakage between observations with identical predictor combinations.
+
+However, these procedures do not guarantee independence at the level of protein sequence, structural family, or evolutionary relationship.
+
+Performance on entirely unseen protein families or independent structural datasets remains untested.
+
+**3. Systematic Prediction Bias**
+
+Residual analysis identified overestimation of low RMSD values and underestimation of high RMSD values.
+
+This limits the reliability of individual predictions, particularly for observations representing substantial structural deviation.
+
+**4. Incomplete Explanation of RMSD Variability**
+
+The final R² of 0.644 indicates that approximately 35.6% of the observed RMSD variance remains unexplained by the model on the test dataset.
+
+This unexplained variation may reflect information not captured by the available descriptors, model limitations, or other sources of variability.
+
+**5. Limited Biological Validation**
+
+The project predicts RMSD using numerical descriptors rather than directly comparing experimentally determined and predicted protein atomic coordinates.
+
+The trained model has not been independently validated against additional experimentally characterized protein structures.
+
+Therefore, its predictions should not be considered substitutes for established structural validation methods.
+
+**6. Limited Input Validation in the Interactive Application**
+
+The Streamlit interface enables users to enter numerical values for F1–F9.
+
+However, the application does not independently establish whether arbitrary feature combinations are biologically plausible or representative of the training distribution.
+
+Predictions generated from unusual inputs may therefore be unreliable.
+
+### 9.4 Future Improvements
+
+Several directions could improve the project's scientific value, predictive performance, and practical usability.
+
+#### 1. Improve Feature Interpretation
+
+Obtaining the original definitions of F1–F9 would allow a more biologically meaningful interpretation of the model.
+
+Feature importance analysis, permutation importance, and SHAP could then be used to investigate which descriptors contribute most strongly to RMSD predictions.
+
+These analyses would provide information about predictive associations but would not, by themselves, establish causal relationships.
+
+#### 2. Investigate Additional Regression Algorithms
+
+Future experiments could compare Random Forest with alternative approaches, including:
+
+- XGBoost
+- LightGBM
+- CatBoost
+- Support Vector Regression
+- Neural-network-based regression
+
+These models could be evaluated using the same group-aware validation strategy to determine whether they improve predictive accuracy.
+
+#### 3. Improve Performance Across RMSD Ranges
+
+Because prediction errors increase for high-RMSD observations, future modeling could investigate strategies designed to reduce systematic bias.
+
+Potential approaches include sample weighting, alternative loss functions, target transformation, and specialized models for different RMSD ranges.
+
+Any improvement should be assessed using independent validation rather than training performance alone.
+
+#### 4. Estimate Prediction Uncertainty
+
+The current application provides point estimates without associated uncertainty intervals.
+
+Future development could investigate prediction intervals using approaches such as conformal prediction.
+
+This would help users distinguish between predictions associated with relatively narrow and broad uncertainty ranges.
+
+The validity of such intervals would depend on the assumptions and calibration strategy used.
+
+#### 5. Validate on Independent Protein Datasets
+
+An important next step would be evaluation on external datasets containing protein models not represented during training.
+
+Where protein identifiers are available, splitting by protein identity, sequence similarity, or structural family could provide stronger evidence of generalization.
+
+This would be especially valuable for assessing whether the model captures transferable relationships rather than dataset-specific patterns.
+
+#### 6. Enhance the Streamlit Application
+
+Potential improvements to the deployed dashboard include:
+
+- Displaying prediction uncertainty alongside RMSD estimates.
+- Validating user inputs against observed training ranges.
+- Adding feature importance visualizations.
+- Allowing batch predictions from uploaded CSV files.
+- Providing downloadable prediction results.
+- Including additional explanations of model limitations and interpretation.
+
+These improvements would make the application more informative and easier to use.
+
+### 9.5 Final Conclusion
+
+ProteinStruct-ML demonstrates the application of supervised machine learning to the prediction of protein structural deviation.
+
+The project combines scientific data analysis, statistical reasoning, regression modeling, hyperparameter optimization, model evaluation, and cloud deployment within a reproducible Python-based workflow.
+
+The optimized Random Forest achieved a held-out test MAE of **2.532 Å**, RMSE of **3.661 Å**, and R² of **0.644**, outperforming the other regression algorithms investigated.
+
+However, systematic prediction biases, limited feature interpretability, and the absence of independent protein-family validation constrain the scientific conclusions that can be drawn.
+
+The project should therefore be viewed as an exploratory machine-learning application rather than a validated protein structure assessment tool.
+
+Beyond its predictive results, ProteinStruct-ML demonstrates the integration of computational data analysis and structural biology concepts into an accessible, interactive application.
+
+**Live Application:** [Explore ProteinStruct-ML on Heroku](https://proteinstruct-ml-casp-38bf24bbb072.herokuapp.com/)
+
+## 10. References and Data Sources
+
+### 10.1 Dataset
+
+**Rana, P. (2013).** *Physicochemical Properties of Protein Tertiary Structure.* UCI Machine Learning Repository.
+
+- Dataset DOI: https://doi.org/10.24432/C5QW3H
+- Dataset page: https://archive.ics.uci.edu/dataset/265/physicochemical+properties+of+protein+tertiary+structure
+- License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+The dataset contains 45,730 protein structure decoys derived from CASP experiments 5–9. It includes nine numerical physicochemical descriptors (F1–F9) and an RMSD target variable.
+
+The original dataset was used as the starting point for the project's data cleaning, exploratory analysis, and regression modeling.
+
+### 10.2 Scientific Background
+
+**Kryshtafovych, A., Krysko, O., Daniluk, P., Dmytriv, Z., & Fidelis, K. (2009).** Protein structure prediction center in CASP8. *Proteins: Structure, Function, and Bioinformatics, 77*(S9), 5–9.
+
+https://doi.org/10.1002/prot.22517
+
+This publication provides background on the organization and evaluation infrastructure of the CASP8 protein structure prediction experiment.
+
+**Kryshtafovych, A., Fidelis, K., & Tramontano, A. (2011).** Evaluation of model quality predictions in CASP9. *Proteins: Structure, Function, and Bioinformatics, 79*(S10), 91–106.
+
+https://doi.org/10.1002/prot.23180
+
+This study discusses the assessment of protein model quality predictions and the challenges associated with estimating structural accuracy.
+
+### 10.3 Machine-Learning and Statistical Resources
+
+The following official documentation resources support the computational methods implemented in this project.
+
+- **Scikit-learn:** https://scikit-learn.org/stable/
+- **Pandas:** https://pandas.pydata.org/docs/
+- **NumPy:** https://numpy.org/doc/stable/
+- **SciPy:** https://docs.scipy.org/doc/scipy/
+- **Matplotlib:** https://matplotlib.org/stable/
+- **Seaborn:** https://seaborn.pydata.org/
+- **Joblib:** https://joblib.readthedocs.io/
+
+### 10.4 Application Development and Deployment
+
+- **Streamlit Documentation:** https://docs.streamlit.io/
+- **Heroku Documentation:** https://devcenter.heroku.com/
+
+The application was developed using Streamlit and deployed on Heroku.
+
+**Live Application:** [ProteinStruct-ML Dashboard](https://proteinstruct-ml-casp-38bf24bbb072.herokuapp.com/)
+
+### 10.5 Acknowledgments
+
+This project was developed as part of the **Code Institute Data Analytics with AI** training program.
+
+The initial repository structure and deployment configuration were based on the Code Institute student project template.
+
+The *Physicochemical Properties of Protein Tertiary Structure* dataset was obtained from the UCI Machine Learning Repository and is attributed to Prashant Rana.
+
+AI-assisted tools, including ChatGPT (OpenAI), were used to support selected aspects of code development, debugging, documentation, and application design. The author retained responsibility for the analytical methodology, interpretation of results, and final implementation.
+
